@@ -10,6 +10,7 @@ export const DEFAULT_CONFIG = Object.freeze({
   environmentMode: 'white', showTowTruck: false, showDimensions: true,
   cameraPreset: 'isometric', renderQuality: 'auto', measurementMode: 'deck', measurementUnits: 'imperial'
   , dumpAngleDeg: 0, cargoDoorOpenPct: 0, rampDeploymentPct: 100, jackExtensionPct: 100
+  , inspectMode: false
 });
 
 const ENUMS = {
@@ -54,7 +55,7 @@ export function normalizeConfig(input = {}, changes = {}) {
   if ([76, 83, 96, 102].includes(Number(input.trailerWidthIn))) {
     state.trailerWidthIn = Number(input.trailerWidthIn);
   }
-  for (const key of ['showTowTruck', 'showDimensions', 'cargoSideDoor']) {
+  for (const key of ['showTowTruck', 'showDimensions', 'cargoSideDoor', 'inspectMode']) {
     if (typeof input[key] === 'boolean') state[key] = input[key];
   }
   for (const key of ['finishColor', 'decalColor']) {

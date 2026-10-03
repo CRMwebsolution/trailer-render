@@ -7,6 +7,7 @@ import { TowTruck } from './TowTruck.js';
 import { trailerFactory } from '../trailers/TrailerFactory.js';
 import { decalFactory } from './DecalFactory.js';
 import { measurementValues, formatDistance } from '../core/modelGeometry.js';
+import { PartInspector } from './PartInspector.js';
 
 const GEOMETRY_KEYS = ['trailerType', 'bedLengthFt', 'trailerWidthIn', 'fenderStyle',
   'payloadClass', 'hitchStyle', 'deckMaterial', 'finishColor', 'rampStyle', 'rampLengthFt',
@@ -35,6 +36,10 @@ export class SceneManager {
     this.cameraController = new CameraController(this.camera, canvas, this.requestRender);
     this.materials = new MaterialFactory();
     this.dimensionOverlay = new DimensionOverlay(this.scene);
+    this.partInspector = new PartInspector(this.scene, canvas, () => this.activeTrailer?.rootGroup, detail => {
+      canvas.dispatchEvent(new CustomEvent('part-selected', { detail })); this.requestRender();
+    });
+    this.partInspector.setCamera(this.camera);
     this.towTruck = new TowTruck(this.materials);
     this.scene.add(this.towTruck.group);
     this.setupLighting();
@@ -241,6 +246,8 @@ export class SceneManager {
     const changed = key => !previous || previous[key] !== state[key];
     if (changed('renderQuality')) { this.applyQuality(state.renderQuality); this.handleResize(false); }
     const geometryChanged = GEOMETRY_KEYS.some(changed);
+    if (geometryChanged) this.partInspector.clear();
+    if (changed('inspectMode')) this.partInspector.setEnabled(state.inspectMode);
     const sameType = this.activeTrailer && this.currentType === state.trailerType;
     this.finishMotion();
     const poseKey = state.trailerType === 'dump' ? 'dumpAngleDeg' : state.trailerType === 'cargo' ? 'cargoDoorOpenPct' : 'rampDeploymentPct';
@@ -353,6 +360,7 @@ export class SceneManager {
     }
     const moving = this.cameraController.update(delta);
     this.dimensionOverlay.updateScale(this.camera, this.height);
+    this.partInspector.update();
     this.renderer.render(this.scene, this.camera);
     if (moving || this.motion) this.requestRender();
     else this.lastFrameTime = 0;
@@ -383,6 +391,7 @@ export class SceneManager {
     this.resizeObserver.disconnect(); this.events.abort();
     this.activeTrailer?.dispose(); this.towTruck.dispose();
     this.cameraController.dispose(); this.dimensionOverlay.dispose();
+    this.partInspector.dispose();
     this.environmentTarget.dispose();
     const geometries = new Set(), materials = new Set();
     this.scene.traverse(child => {

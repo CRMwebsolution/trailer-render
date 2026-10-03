@@ -123,6 +123,29 @@ export class UIController {
     });
     this.click('btn-toggle-dimensions', () => this.update({ showDimensions: !store.getState().showDimensions }));
     this.click('btn-toggle-truck', () => this.update({ showTowTruck: !store.getState().showTowTruck }));
+    this.click('btn-toggle-inspect', () => this.update({ inspectMode: !store.getState().inspectMode }));
+    this.listen($('webgl-canvas'), 'part-selected', event => {
+      const info = event.detail; $('part-inspector').hidden = !info;
+      if (info) {
+        $('part-title').textContent = info.title; $('part-description').textContent = info.description;
+        const state = store.getState();
+        this.selectedControl = info.id === 'deck' ? state.trailerType === 'cargo' ? 'group-cargo-controls' : state.trailerType === 'dump' ? 'group-dump-controls' : info.control : info.control;
+        $('select-inspect-part').value = info.id;
+      } else $('select-inspect-part').value = '';
+    });
+    this.listen($('select-inspect-part'), 'change', event => {
+      this.update({ inspectMode: true }); this.sceneManager.partInspector.selectById(event.target.value);
+    });
+    this.click('btn-clear-part', () => { this.sceneManager.partInspector.clear(); this.sceneManager.requestRender(); });
+    this.click('btn-part-settings', () => {
+      const element = $(this.selectedControl);
+      $('app').dataset.mobilePanel = 'config';
+      document.querySelectorAll('[data-panel]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.panel === 'config')));
+      if (!element || !element.getClientRects().length) { this.showToast('These settings are not available for this trailer type.'); return; }
+      if (element.tagName === 'DETAILS') element.open = true;
+      element.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      element.querySelector('input,select,button')?.focus({ preventScroll: true });
+    });
     this.click('btn-load-truck', () => $('input-truck-file').click());
     this.listen($('input-truck-file'), 'change', async event => {
       const file = event.target.files[0];
@@ -234,7 +257,7 @@ export class UIController {
         button.setAttribute('aria-pressed', String(active));
       });
     }
-    for (const [id, value] of [['btn-toggle-truck', state.showTowTruck], ['btn-toggle-dimensions', state.showDimensions]]) {
+    for (const [id, value] of [['btn-toggle-truck', state.showTowTruck], ['btn-toggle-dimensions', state.showDimensions], ['btn-toggle-inspect', state.inspectMode]]) {
       $(id).classList.toggle('active', value);
       $(id).setAttribute('aria-pressed', String(value));
     }

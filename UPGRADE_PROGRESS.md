@@ -6,7 +6,7 @@ All work stays on `codex/configurator-improvements`. Each finished upgrade is te
 - [x] Named starter presets, local saved designs, thumbnails, and recovery of the last design.
 - [x] Selectable measurements and unit conversion, based on the procedural model and its current pose.
 - [x] Continuous dump tilt, cargo doors, ramp deployment, and telescoping jack controls.
-- [ ] Part selection and explanations.
+- [x] Tap or keyboard-select assemblies, highlight them, read explanations, and open their settings.
 - [ ] Cargo fit visualization.
 - [ ] Improved materials and hardware detail.
 - [ ] Adaptive rendering quality.

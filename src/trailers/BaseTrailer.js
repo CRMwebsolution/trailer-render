@@ -46,6 +46,7 @@ export class BaseTrailer {
 
     this.currentConfig = null;
     this.currentMetrics = null;
+    for (const [group, id] of [[this.chassisGroup, 'frame'], [this.runningGearGroup, 'wheels'], [this.deckGroup, 'deck'], [this.hitchGroup, 'hitch'], [this.rampGroup, 'ramps'], [this.accessoriesGroup, 'lighting']]) group.userData.partId = id;
 
     this.scene.add(this.rootGroup);
   }
@@ -520,7 +521,7 @@ export class BaseTrailer {
     const gooseneck = config.hitchStyle === 'gooseneck';
     for (const z of gooseneck ? [-metrics.bedWidthM * .32, metrics.bedWidthM * .32] : [0]) {
       const mountY = gooseneck ? metrics.deckHeightM : metrics.couplerHeightIn * .0254;
-      const group = new THREE.Group(); group.name = 'Tongue_Jack';
+      const group = new THREE.Group(); group.name = 'Tongue_Jack'; group.userData.partId = 'jack';
       group.position.set(gooseneck ? -.55 : -1.13, 0, z);
       const body = new THREE.Mesh(new THREE.CylinderGeometry(.045, .045, .36, 20), steel);
       body.position.y = mountY + .12; body.castShadow = true; group.add(body);

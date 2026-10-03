@@ -6,10 +6,11 @@ An interactive trailer design studio built with Three.js, vanilla JavaScript and
 
 - Flatbed, hydraulic dump and enclosed cargo configurations.
 - Adjustable deck length and width, axle class, hitch, materials, finish and signage.
-- Raised/lowered dump-bed motion with an attached hydraulic linkage.
-- Open/closed cargo ramp or barn doors.
+- Continuous dump tilt, cargo-door opening, ramp deployment and telescoping jack controls.
+- Undo/redo, grouped slider edits, named example presets, saved thumbnails and recovery of the last design.
+- Tap or select trailer components to highlight assemblies, read explanations and open their settings.
 - Studio, dark and showroom lighting, plus camera presets that frame the actual model bounds.
-- Dimension labels for deck length, width and axle-group position.
+- Selectable deck, overall, hitch-to-axle and cargo-opening measurements in imperial or metric units.
 - Desktop layout with separate controls, preview and specifications; phone layout with a visible 3D preview and Customize/Specifications panels.
 - Save/load configuration JSON, shareable design addresses, PNG snapshots and binary GLB model export.
 - Local GLB and self-contained GLTF truck imports with scale, direction and longitudinal alignment controls.
