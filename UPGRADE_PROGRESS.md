@@ -15,3 +15,5 @@ All work stays on `codex/configurator-improvements`. Each finished upgrade is te
 - [ ] Feasible truck, load-placement, and turning demonstrations.
 
 Physical dimensions, weights, fit checks, and motion remain modeled or explicitly assumed until real measurements and manufacturer data are supplied. Reference designs are examples, not verified products.
+
+Repository checks: GitHub Actions runs unit tests, the production build, and browser/export regressions on every checkpoint. Review screenshots and the printed sheet are saved as workflow artifacts.
