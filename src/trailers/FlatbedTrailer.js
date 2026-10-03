@@ -283,18 +283,7 @@ export class FlatbedTrailer extends BaseTrailer {
       latch.position.set(-tongueReachM - 0.02, couplerElevationM + 0.11, 0);
       this.hitchGroup.add(latch);
 
-      // Integrated A-Frame Tongue Jack (clean single vertical tube through A-frame)
-      const jackTubeGeo = new THREE.CylinderGeometry(0.04, 0.04, 0.45, 16);
-      const jackTube = new THREE.Mesh(jackTubeGeo, frameMat);
-      jackTube.position.set(-tongueReachM + 0.32, couplerElevationM + 0.16, 0);
-      jackTube.castShadow = true;
-      this.hitchGroup.add(jackTube);
 
-      // Jack Foot Plate on ground
-      const footGeo = new THREE.CylinderGeometry(0.09, 0.09, 0.02, 16);
-      const foot = new THREE.Mesh(footGeo, hardwareMat);
-      foot.position.set(-tongueReachM + 0.32, 0.01, 0);
-      this.hitchGroup.add(foot);
 
     } else {
       // ----------------- GOOSENECK TOWER -----------------
@@ -387,6 +376,7 @@ export class FlatbedTrailer extends BaseTrailer {
     const frameMat = this.materials.getMaterial('frame_steel', { color: frameColor });
     const hardwareMat = this.materials.getMaterial('zinc_hardware');
 
+    this.rampAssemblies = [];
     const rampPos = config.rampPosition || 'deployed'; // 'stowed' | 'deployed' | 'standing'
     const rampWidthM = 0.42; // ~16.5" wide ramp runner
     const rampThickM = 0.065;
@@ -429,7 +419,7 @@ export class FlatbedTrailer extends BaseTrailer {
           rampAssembly.rotation.z = -rad;
         }
 
-        this.rampGroup.add(rampAssembly);
+        this.rampGroup.add(rampAssembly); this.rampAssemblies.push(rampAssembly);
       });
 
     } else {
@@ -444,13 +434,6 @@ export class FlatbedTrailer extends BaseTrailer {
           // Standing vertical (90 degrees) for transport
           rampAssembly.rotation.z = Math.PI / 2;
 
-          // Support brace rod
-          const braceGeo = new THREE.CylinderGeometry(0.012, 0.012, 0.75, 12);
-          const brace = new THREE.Mesh(braceGeo, hardwareMat);
-          brace.position.set(rearLipX - 0.25, rearHingeY + 0.35, side * (rampTrackZ + side * 0.08));
-          brace.rotation.z = -Math.PI / 4;
-          this.rampGroup.add(brace);
-
         } else if (rampPos === 'stowed') {
           // Folded 180 degrees forward flat onto dovetail deck surface
           rampAssembly.rotation.z = Math.PI;
@@ -461,8 +444,26 @@ export class FlatbedTrailer extends BaseTrailer {
           rampAssembly.rotation.z = -rad;
         }
 
-        this.rampGroup.add(rampAssembly);
+        this.rampGroup.add(rampAssembly); this.rampAssemblies.push(rampAssembly);
       });
+    }
+    this.setPose(config.rampDeploymentPct / 100);
+  }
+
+  setPose(value) {
+    this.pose = value;
+    const m = this.currentMetrics;
+    const y = m.deckHeightM - m.dovetailDropIn * .0254;
+    const angle = THREE.MathUtils.degToRad(m.rampAngleDeg);
+    for (const ramp of this.rampAssemblies || []) {
+      if (m.rampStyle === "slide_in") {
+        const length = m.rampLengthFt * .3048;
+        ramp.position.x = THREE.MathUtils.lerp(m.bedLengthM - length - .05, m.bedLengthM, Math.min(1, value / .65));
+        ramp.position.y = y - .12 + .12 * THREE.MathUtils.clamp((value - .65) / .15, 0, 1);
+        ramp.rotation.z = -angle * THREE.MathUtils.clamp((value - .8) / .2, 0, 1);
+      } else {
+        ramp.rotation.z = value <= .5 ? THREE.MathUtils.lerp(Math.PI, Math.PI / 2, value * 2) : THREE.MathUtils.lerp(Math.PI / 2, -angle, (value - .5) * 2);
+      }
     }
   }
 

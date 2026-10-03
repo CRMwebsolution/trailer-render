@@ -9,6 +9,7 @@ const FIELDS = {
   'slider-ramp-length': 'rampLengthFt', 'check-cargo-side-door': 'cargoSideDoor',
   'input-decal-text': 'decalText', 'select-render-quality': 'renderQuality',
   'select-measurement-mode': 'measurementMode', 'select-measurement-units': 'measurementUnits'
+  , 'slider-dump-angle': 'dumpAngleDeg', 'slider-cargo-door': 'cargoDoorOpenPct', 'slider-ramp-deployment': 'rampDeploymentPct', 'slider-jack-extension': 'jackExtensionPct'
 };
 const RADIOS = {
   'fender-style': 'fenderStyle', 'hitch-style': 'hitchStyle', 'deck-mat': 'deckMaterial',
@@ -77,7 +78,7 @@ export class UIController {
       const isInput = element.type === 'range' || element.type === 'text';
       this.listen(element, isInput ? 'input' : 'change', () => {
         let value = element.type === 'checkbox' ? element.checked : element.value;
-        if (['bedLengthFt', 'rampLengthFt', 'trailerWidthIn'].includes(key)) value = Number(value);
+        if (element.type === 'range' || key === 'trailerWidthIn') value = Number(value);
         const update = { [key]: value };
         if (key === 'trailerWidthIn') update.fenderStyle = value === 102 ? 'deck_over' : 'regular';
         if (isInput) this.queue(update, element.type === 'text' ? 180 : 16);
@@ -222,6 +223,10 @@ export class UIController {
     }
     $('val-bed-length').textContent = `${state.bedLengthFt} ft`;
     $('val-ramp-length').textContent = `${state.rampLengthFt.toFixed(1)} ft`;
+    $('val-dump-angle').textContent = `${state.dumpAngleDeg}°`;
+    $('val-cargo-door').textContent = `${state.cargoDoorOpenPct}%`;
+    $('val-ramp-deployment').textContent = `${state.rampDeploymentPct}%`;
+    $('val-jack-extension').textContent = `${state.jackExtensionPct}%`;
     for (const [selector, field, data] of [['[data-color]', 'finishColor', 'color'], ['[data-decal-color]', 'decalColor', 'decalColor'], ['[data-env]', 'environmentMode', 'env'], ['[data-preset]', 'cameraPreset', 'preset']]) {
       document.querySelectorAll(selector).forEach(button => {
         const active = button.dataset[data] === state[field];

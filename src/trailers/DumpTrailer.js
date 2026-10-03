@@ -244,7 +244,7 @@ export class DumpTrailer extends BaseTrailer {
     this.upperPin = new THREE.Mesh(pinGeometry, chromeMat);
     group.add(basePin, this.upperPin);
     this.chassisGroup.add(group);
-    this.setPose(isRaised ? 1 : 0);
+    this.setPose(config.dumpAngleDeg / 42);
   }
 
   setPose(value) {
@@ -384,17 +384,7 @@ export class DumpTrailer extends BaseTrailer {
       socket.castShadow = true;
       this.hitchGroup.add(socket);
 
-      // Tongue Jack
-      const jackTubeGeo = new THREE.CylinderGeometry(0.04, 0.04, 0.45, 16);
-      const jackTube = new THREE.Mesh(jackTubeGeo, frameMat);
-      jackTube.position.set(-tongueReachM + 0.32, couplerElevationM + 0.16, 0);
-      jackTube.castShadow = true;
-      this.hitchGroup.add(jackTube);
 
-      const footGeo = new THREE.CylinderGeometry(0.09, 0.09, 0.02, 16);
-      const foot = new THREE.Mesh(footGeo, hardwareMat);
-      foot.position.set(-tongueReachM + 0.32, 0.01, 0);
-      this.hitchGroup.add(foot);
 
       // Hydraulic Pump & Deep-Cycle Battery Box mounted inside A-Frame
       const pumpBoxGeo = new THREE.BoxGeometry(0.60, 0.42, 0.50);

@@ -70,6 +70,7 @@ export class BaseTrailer {
     this.buildRunningGear(config, metrics);
     this.buildDeck(config, metrics);
     this.buildHitch(config, metrics);
+    this.buildJack(config, metrics);
     this.buildRamps(config, metrics);
     this.buildFenders(config, metrics);
     this.buildLightingAndSafety(config, metrics);
@@ -510,6 +511,39 @@ export class BaseTrailer {
       amberMesh.position.set(0.02, deckHeightM - 0.04, side * (bedWidthM / 2 + 0.02));
       this.accessoriesGroup.add(amberMesh);
     });
+  }
+
+  buildJack(config, metrics) {
+    const steel = this.materials.getMaterial('frame_steel', { color: config.finishColor });
+    const hardware = this.materials.getMaterial('zinc_hardware');
+    this.jacks = [];
+    const gooseneck = config.hitchStyle === 'gooseneck';
+    for (const z of gooseneck ? [-metrics.bedWidthM * .32, metrics.bedWidthM * .32] : [0]) {
+      const mountY = gooseneck ? metrics.deckHeightM : metrics.couplerHeightIn * .0254;
+      const group = new THREE.Group(); group.name = 'Tongue_Jack';
+      group.position.set(gooseneck ? -.55 : -1.13, 0, z);
+      const body = new THREE.Mesh(new THREE.CylinderGeometry(.045, .045, .36, 20), steel);
+      body.position.y = mountY + .12; body.castShadow = true; group.add(body);
+      const mount = new THREE.Mesh(new THREE.BoxGeometry(.12, .08, .12), hardware);
+      mount.position.y = mountY + .06; group.add(mount);
+      const stem = new THREE.Mesh(new THREE.CylinderGeometry(.032, .032, 1, 16), hardware);
+      stem.name = 'Jack_Extending_Leg'; stem.castShadow = true; group.add(stem);
+      const foot = new THREE.Mesh(new THREE.CylinderGeometry(.09, .09, .025, 20), hardware);
+      foot.name = 'Jack_Foot'; group.add(foot);
+      const crank = new THREE.Mesh(new THREE.BoxGeometry(.18, .018, .018), hardware);
+      crank.position.set(.07, mountY + .315, 0); group.add(crank);
+      const grip = new THREE.Mesh(new THREE.CylinderGeometry(.015, .015, .075, 12), this.materials.getMaterial('black_iron'));
+      grip.position.set(.15, mountY + .28, 0); group.add(grip);
+      this.hitchGroup.add(group); this.jacks.push({ stem, foot, mountY });
+    }
+    this.setJackPose(config.jackExtensionPct / 100);
+  }
+  setJackPose(value) {
+    for (const { stem, foot, mountY } of this.jacks || []) {
+      const footY = THREE.MathUtils.lerp(mountY - .08, .015, value);
+      const length = mountY + .08 - footY;
+      stem.scale.y = length; stem.position.y = footY + length / 2; foot.position.y = footY;
+    }
   }
 
   clearGroup(group) {

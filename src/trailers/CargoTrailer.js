@@ -111,7 +111,7 @@ export class CargoTrailer extends BaseTrailer {
 
     // 5. Rear Doors: Drop-Down Ramp Door vs Double Swing Doors (Item 12)
     this.buildRearCargoDoors(boxGroup, bedLengthM, bedWidthM, boxHeightM, deckHeightM, config.cargoRearDoor, skinMat, trimMat);
-    this.setPose(config.cargoDoorPosition === 'open' ? 1 : 0);
+    this.setPose(config.cargoDoorOpenPct / 100);
 
     this.deckGroup.add(boxGroup);
   }
@@ -308,17 +308,7 @@ export class CargoTrailer extends BaseTrailer {
     socket.castShadow = true;
     this.hitchGroup.add(socket);
 
-    // Top-Wind Tongue Jack
-    const jackTubeGeo = new THREE.CylinderGeometry(0.04, 0.04, 0.45, 16);
-    const jackTube = new THREE.Mesh(jackTubeGeo, frameMat);
-    jackTube.position.set(-tongueReachM + 0.32, couplerElevationM + 0.16, 0);
-    jackTube.castShadow = true;
-    this.hitchGroup.add(jackTube);
 
-    const footGeo = new THREE.CylinderGeometry(0.09, 0.09, 0.02, 16);
-    const foot = new THREE.Mesh(footGeo, hardwareMat);
-    foot.position.set(-tongueReachM + 0.32, 0.01, 0);
-    this.hitchGroup.add(foot);
   }
 
   buildRamps(config, metrics) {

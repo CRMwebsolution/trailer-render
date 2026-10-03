@@ -10,8 +10,8 @@ import { measurementValues, formatDistance } from '../core/modelGeometry.js';
 
 const GEOMETRY_KEYS = ['trailerType', 'bedLengthFt', 'trailerWidthIn', 'fenderStyle',
   'payloadClass', 'hitchStyle', 'deckMaterial', 'finishColor', 'rampStyle', 'rampLengthFt',
-  'rampPosition', 'dumpBedPosition', 'dumpDoorStyle', 'cargoRearDoor', 'cargoSideDoor',
-  'cargoDoorPosition', 'decalText', 'decalColor'];
+  'dumpDoorStyle', 'cargoRearDoor', 'cargoSideDoor',
+  'decalText', 'decalColor'];
 const DIMENSION_KEYS = ['bedLengthFt', 'trailerWidthIn', 'payloadClass', 'fenderStyle', 'showDimensions', 'measurementMode', 'measurementUnits', 'hitchStyle', 'trailerType'];
 
 export class SceneManager {
@@ -242,22 +242,11 @@ export class SceneManager {
     if (changed('renderQuality')) { this.applyQuality(state.renderQuality); this.handleResize(false); }
     const geometryChanged = GEOMETRY_KEYS.some(changed);
     const sameType = this.activeTrailer && this.currentType === state.trailerType;
-    const changedGeometry = GEOMETRY_KEYS.filter(changed);
-    const poseOnly = sameType && changedGeometry.length === 1 &&
-      ((state.trailerType === 'dump' && changedGeometry[0] === 'dumpBedPosition') ||
-       (state.trailerType === 'cargo' && changedGeometry[0] === 'cargoDoorPosition'));
     this.finishMotion();
-    if (poseOnly) {
-      this.activeTrailer.currentConfig = state;
-      const target = state.trailerType === 'dump' ? (state.dumpBedPosition === 'raised' ? 1 : 0) : (state.cargoDoorPosition === 'open' ? 1 : 0);
-      if (this.cameraController.reducedMotion.matches) this.activeTrailer.setPose(target);
-      else this.motion = { from: this.activeTrailer.pose || 0, to: target, elapsed: 0 };
-      // Frame the target pose before moving so a raised bed stays inside the view.
-      const current = this.activeTrailer.pose || 0;
-      this.activeTrailer.setPose(target);
-      this.setCameraPreset(state.cameraPreset, undefined, false, !previous);
-      this.activeTrailer.setPose(current);
-    } else if (geometryChanged) {
+    const poseKey = state.trailerType === 'dump' ? 'dumpAngleDeg' : state.trailerType === 'cargo' ? 'cargoDoorOpenPct' : 'rampDeploymentPct';
+    const divisor = state.trailerType === 'dump' ? 42 : 100;
+    const poseOnly = sameType && !geometryChanged && changed(poseKey);
+    if (geometryChanged) {
       if (!sameType) {
         this.activeTrailer?.dispose();
         this.activeTrailer = trailerFactory.create(state.trailerType, this.scene, this.materials);
@@ -265,8 +254,23 @@ export class SceneManager {
       }
       this.activeTrailer.build(state, metrics);
       this.markShadowsDirty();
+    } else if (poseOnly) {
+      this.activeTrailer.currentConfig = state;
+      const target = state[poseKey] / divisor;
+      const current = this.activeTrailer.pose || 0;
+      const sliderPose = state.trailerType === 'dump' ? state.dumpBedPosition === 'custom' : state.trailerType === 'cargo' ? state.cargoDoorPosition === 'custom' : state.rampPosition === 'custom';
+      this.activeTrailer.setPose(target);
+      this.setCameraPreset(state.cameraPreset, undefined, false, sliderPose);
+      if (!sliderPose && !this.cameraController.reducedMotion.matches) {
+        this.activeTrailer.setPose(current);
+        this.motion = { from: current, to: target, elapsed: 0 };
+      }
+      this.markShadowsDirty();
     }
-    if (geometryChanged || DIMENSION_KEYS.some(changed)) this.refreshDimensions();
+    if (geometryChanged || changed('jackExtensionPct')) {
+      this.activeTrailer.setJackPose(state.jackExtensionPct / 100); this.markShadowsDirty();
+    }
+    if (geometryChanged || poseOnly || changed('jackExtensionPct') || DIMENSION_KEYS.some(changed)) this.refreshDimensions();
     this.towTruck.updatePosition(metrics, state.hitchStyle, state.showTowTruck);
     if (geometryChanged && !poseOnly || changed('showTowTruck') || changed('cameraPreset')) {
       this.setCameraPreset(state.cameraPreset, undefined, false, !previous);

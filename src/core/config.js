@@ -9,6 +9,7 @@ export const DEFAULT_CONFIG = Object.freeze({
   decalText: 'TITAN 14K', decalColor: '#f59e0b',
   environmentMode: 'white', showTowTruck: false, showDimensions: true,
   cameraPreset: 'isometric', renderQuality: 'auto', measurementMode: 'deck', measurementUnits: 'imperial'
+  , dumpAngleDeg: 0, cargoDoorOpenPct: 0, rampDeploymentPct: 100, jackExtensionPct: 100
 });
 
 const ENUMS = {
@@ -18,9 +19,9 @@ const ENUMS = {
   hitchStyle: ['bumper_pull', 'gooseneck'],
   deckMaterial: ['wood', 'diamond_plate'],
   rampStyle: ['slide_in', 'fold_flat'],
-  rampPosition: ['stowed', 'deployed', 'standing'],
-  dumpBedPosition: ['lowered', 'raised'], dumpDoorStyle: ['barn', 'spreader'],
-  cargoRearDoor: ['ramp', 'barn'], cargoDoorPosition: ['closed', 'open'],
+  rampPosition: ['stowed', 'deployed', 'standing', 'custom'],
+  dumpBedPosition: ['lowered', 'raised', 'custom'], dumpDoorStyle: ['barn', 'spreader'],
+  cargoRearDoor: ['ramp', 'barn'], cargoDoorPosition: ['closed', 'open', 'custom'],
   environmentMode: ['black', 'white', 'showroom'],
   cameraPreset: ['isometric', 'side', 'top', 'hitch', 'ramps'],
   renderQuality: ['auto', 'high', 'low']
@@ -40,6 +41,16 @@ export function normalizeConfig(input = {}, changes = {}) {
   }
   state.bedLengthFt = numberInRange(input.bedLengthFt, 20, 10, 30);
   state.rampLengthFt = numberInRange(input.rampLengthFt, 6, 5, 8, 0.5);
+  state.dumpAngleDeg = numberInRange(input.dumpAngleDeg, 0, 0, 42, .5);
+  state.cargoDoorOpenPct = numberInRange(input.cargoDoorOpenPct, 0, 0, 100);
+  state.rampDeploymentPct = numberInRange(input.rampDeploymentPct, 100, 0, 100);
+  state.jackExtensionPct = numberInRange(input.jackExtensionPct, 100, 0, 100);
+  if ((!Object.hasOwn(input, 'dumpAngleDeg') || Object.hasOwn(changes, 'dumpBedPosition')) && !Object.hasOwn(changes, 'dumpAngleDeg')) state.dumpAngleDeg = state.dumpBedPosition === 'raised' ? 42 : 0;
+  if ((!Object.hasOwn(input, 'cargoDoorOpenPct') || Object.hasOwn(changes, 'cargoDoorPosition')) && !Object.hasOwn(changes, 'cargoDoorOpenPct')) state.cargoDoorOpenPct = state.cargoDoorPosition === 'open' ? 100 : 0;
+  if ((!Object.hasOwn(input, 'rampDeploymentPct') || Object.hasOwn(changes, 'rampPosition')) && !Object.hasOwn(changes, 'rampDeploymentPct')) state.rampDeploymentPct = state.rampPosition === 'stowed' ? 0 : state.rampPosition === 'standing' ? 50 : 100;
+  state.dumpBedPosition = state.dumpAngleDeg === 0 ? 'lowered' : state.dumpAngleDeg === 42 ? 'raised' : 'custom';
+  state.cargoDoorPosition = state.cargoDoorOpenPct === 0 ? 'closed' : state.cargoDoorOpenPct === 100 ? 'open' : 'custom';
+  state.rampPosition = state.rampDeploymentPct === 0 ? 'stowed' : state.rampDeploymentPct === 100 ? 'deployed' : state.rampDeploymentPct === 50 && state.rampStyle === 'fold_flat' ? 'standing' : 'custom';
   if ([76, 83, 96, 102].includes(Number(input.trailerWidthIn))) {
     state.trailerWidthIn = Number(input.trailerWidthIn);
   }
@@ -68,8 +79,9 @@ export function normalizeConfig(input = {}, changes = {}) {
       state.trailerWidthIn = 102;
     }
   }
-  if (state.rampStyle === 'slide_in' && state.rampPosition === 'standing') {
+  if (state.rampStyle === 'slide_in' && (state.rampPosition === 'standing' || input.rampPosition === 'standing' && !Object.hasOwn(changes, 'rampDeploymentPct'))) {
     state.rampPosition = 'deployed';
+    state.rampDeploymentPct = 100;
   }
   if (state.trailerType === 'cargo') {
     state.hitchStyle = 'bumper_pull';

@@ -127,3 +127,5 @@ input[type='range'].config-slider { background: transparent; height: 32px; }
 .config-slider::-webkit-slider-thumb { margin-top: -6px; }
 .config-slider::-moz-range-track { background: #344152; height: 6px; border-radius: 99px; }
 @media (max-width: 820px) { .desktop-label { display: none; } }
+
+.motion-settings > :not(summary) { margin-top: 10px; }

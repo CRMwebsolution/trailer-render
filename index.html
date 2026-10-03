@@ -223,6 +223,8 @@
             <input type="range" id="slider-ramp-length" aria-label="Ramp length in feet" class="config-slider" min="5.0" max="8.0" step="0.5" value="6.0" />
           </div>
 
+          <label class="control-label" for="slider-ramp-deployment">Ramp deployment <output id="val-ramp-deployment">100%</output></label>
+          <input id="slider-ramp-deployment" class="config-slider" type="range" min="0" max="100" step="1" value="100" />
           <!-- Ramp Position Toggle -->
           <div class="control-label" style="margin-bottom: 4px;">
             <span>Ramp Position</span>
@@ -250,8 +252,9 @@
             <span class="badge">Hydraulic</span>
           </div>
           <div class="control-label" style="margin-bottom: 4px;">
-            <span>Bed Position</span>
+            <label for="slider-dump-angle">Bed tilt <output id="val-dump-angle">0°</output></label>
           </div>
+          <input id="slider-dump-angle" class="config-slider" type="range" min="0" max="42" step="0.5" value="0" />
           <div class="segmented-control" style="margin-bottom: 10px;">
             <div class="segmented-option">
               <input type="radio" id="dump-pos-lowered" name="dump-bed-pos" value="lowered" checked />
@@ -298,7 +301,8 @@
             </div>
           </div>
 
-          <div class="control-label">Rear door position</div>
+          <label class="control-label" for="slider-cargo-door">Rear door opening <output id="val-cargo-door">0%</output></label>
+          <input id="slider-cargo-door" class="config-slider" type="range" min="0" max="100" step="1" value="0" />
           <div class="segmented-control">
             <div class="segmented-option"><input type="radio" id="cargo-pos-closed" name="cargo-door-pos" value="closed" checked /><label for="cargo-pos-closed">Closed</label></div>
             <div class="segmented-option"><input type="radio" id="cargo-pos-open" name="cargo-door-pos" value="open" /><label for="cargo-pos-open">Open</label></div>
@@ -329,6 +333,12 @@
           </div>
         </div>
 
+        <details class="section-group motion-settings">
+          <summary>Jack & moving parts</summary>
+          <label class="control-label" for="slider-jack-extension">Jack extension <output id="val-jack-extension">100%</output></label>
+          <input id="slider-jack-extension" class="config-slider" type="range" min="0" max="100" step="1" value="100" />
+          <p class="control-help">Movement illustrates the model. Jack movement does not change hitch height or simulate lifting a loaded trailer.</p>
+        </details>
         <details class="section-group measurement-settings">
           <summary>Measurements</summary>
           <label class="control-label" for="select-measurement-mode">Show in the model</label>
