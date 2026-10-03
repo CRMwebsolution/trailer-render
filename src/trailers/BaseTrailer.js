@@ -4,6 +4,7 @@
  * Encapsulates scene lifecycle, running gear, suspension kinematics, wheels, fenders, lighting, and memory cleanup.
  */
 import * as THREE from 'three';
+import { buildTrailerHardware } from './hardware.js';
 
 export class BaseTrailer {
   constructor(scene, materialFactory) {
@@ -75,6 +76,7 @@ export class BaseTrailer {
     this.buildRamps(config, metrics);
     this.buildFenders(config, metrics);
     this.buildLightingAndSafety(config, metrics);
+    buildTrailerHardware(this, config, metrics);
   }
 
   /**

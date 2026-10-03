@@ -10,6 +10,7 @@ const FIELDS = {
   'select-trailer-width': 'trailerWidthIn', 'select-payload-class': 'payloadClass',
   'slider-ramp-length': 'rampLengthFt', 'check-cargo-side-door': 'cargoSideDoor',
   'input-decal-text': 'decalText', 'select-render-quality': 'renderQuality',
+  'select-finish-sheen': 'finishSheen',
   'select-measurement-mode': 'measurementMode', 'select-measurement-units': 'measurementUnits'
   , 'slider-dump-angle': 'dumpAngleDeg', 'slider-cargo-door': 'cargoDoorOpenPct', 'slider-ramp-deployment': 'rampDeploymentPct', 'slider-jack-extension': 'jackExtensionPct',
   'input-load-length': 'loadLengthFt', 'input-load-width': 'loadWidthIn', 'input-load-height': 'loadHeightIn',

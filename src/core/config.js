@@ -2,7 +2,7 @@
 export const DEFAULT_CONFIG = Object.freeze({
   trailerType: 'flatbed', bedLengthFt: 20, trailerWidthIn: 83,
   fenderStyle: 'regular', payloadClass: '14K', hitchStyle: 'bumper_pull',
-  deckMaterial: 'wood', finishColor: '#27272a',
+  deckMaterial: 'wood', finishColor: '#27272a', finishSheen: 'satin',
   rampStyle: 'slide_in', rampLengthFt: 6, rampPosition: 'deployed',
   dumpBedPosition: 'lowered', dumpDoorStyle: 'barn',
   cargoRearDoor: 'ramp', cargoSideDoor: true, cargoDoorPosition: 'closed',
@@ -20,6 +20,7 @@ const ENUMS = {
   payloadClass: ['single', '10K', '14K', '20K', '25K'],
   hitchStyle: ['bumper_pull', 'gooseneck'],
   deckMaterial: ['wood', 'diamond_plate'],
+  finishSheen: ['matte', 'satin', 'gloss'],
   rampStyle: ['slide_in', 'fold_flat'],
   rampPosition: ['stowed', 'deployed', 'standing', 'custom'],
   dumpBedPosition: ['lowered', 'raised', 'custom'], dumpDoorStyle: ['barn', 'spreader'],

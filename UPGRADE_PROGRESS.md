@@ -8,7 +8,7 @@ All work stays on `codex/configurator-improvements`. Each finished upgrade is te
 - [x] Continuous dump tilt, cargo doors, ramp deployment, and telescoping jack controls.
 - [x] Tap or keyboard-select assemblies, highlight them, read explanations, and open their settings.
 - [x] Cargo fit visualization, rotated envelopes, clearance gaps and enclosed-body cutaway.
-- [ ] Improved materials and hardware detail.
+- [x] Matte/satin/gloss paint, surface texture detail, chains, wiring, fasteners and open stake pockets.
 - [ ] Adaptive rendering quality.
 - [ ] Comparison and presentation exports.
 - [ ] Feasible truck, load-placement, and turning demonstrations.

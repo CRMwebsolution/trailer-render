@@ -9,6 +9,27 @@ export class MaterialFactory {
   constructor() {
     this.cache = new Map();
     this.textures = new Set();
+    this.surfaceMaps = new Map();
+  }
+
+  createSurfaceMap(kind) {
+    if (this.surfaceMaps.has(kind)) return this.surfaceMaps.get(kind);
+    const canvas = document.createElement('canvas'); canvas.width = canvas.height = 256;
+    const context = canvas.getContext('2d'), pixels = context.createImageData(256, 256);
+    let seed = 72641;
+    for (let y = 0; y < 256; y++) {
+      const stripe = kind === 'brushed' ? Math.sin(y * 2.1) * 18 : 0;
+      for (let x = 0; x < 256; x++) {
+        seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
+        const value = Math.round(180 + stripe + ((seed / 4294967296) - .5) * 35);
+        const offset = (y * 256 + x) * 4;
+        pixels.data[offset] = pixels.data[offset + 1] = pixels.data[offset + 2] = value; pixels.data[offset + 3] = 255;
+      }
+    }
+    context.putImageData(pixels, 0, 0);
+    const texture = new THREE.CanvasTexture(canvas); texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+    texture.repeat.set(kind === 'brushed' ? 3 : 10, kind === 'brushed' ? 1 : 10);
+    this.textures.add(texture); this.surfaceMaps.set(kind, texture); return texture;
   }
 
   /**
@@ -35,12 +56,19 @@ export class MaterialFactory {
       ctx.fillStyle = `rgb(${155 + toneOffset}, ${113 + toneOffset * 0.8}, ${71 + toneOffset * 0.5})`;
       ctx.fillRect(0, y, 1024, plankHeight);
 
-      // Fine grain streaks
+      // Long grain lines and knots keep individual boards from looking like flat fills.
       for (let s = 0; s < 45; s++) {
         const streakY = y + Math.random() * plankHeight;
         const alpha = 0.08 + Math.random() * 0.12;
         ctx.fillStyle = Math.random() > 0.5 ? `rgba(90, 55, 25, ${alpha})` : `rgba(190, 145, 90, ${alpha})`;
-        ctx.fillRect(0, streakY, 1024, 1.2 + Math.random() * 1.5);
+        ctx.strokeStyle = ctx.fillStyle; ctx.lineWidth = .5 + Math.random() * 1.2;
+        ctx.beginPath(); ctx.moveTo(0, streakY);
+        ctx.bezierCurveTo(250, streakY + 3, 760, streakY - 3, 1024, streakY); ctx.stroke();
+      }
+      for (let knot = 0; knot < (singleBoard ? 3 : 1); knot++) {
+        const kx = 100 + Math.random() * 820, ky = y + plankHeight * (.3 + Math.random() * .4);
+        ctx.strokeStyle = 'rgba(75,45,23,.25)'; ctx.lineWidth = 1;
+        for (let ring = 1; ring < 5; ring++) { ctx.beginPath(); ctx.ellipse(kx, ky, ring * 8, ring * 1.8, 0, 0, Math.PI * 2); ctx.stroke(); }
       }
 
       // Plank gap shadow seam
@@ -198,6 +226,7 @@ export class MaterialFactory {
    * Retrieves or builds requested PBR material.
    */
   getMaterial(name, options = {}) {
+    if (name === 'frame_steel') options = { ...options, sheen: this.finishSheen || 'satin' };
     const key = `${name}_${JSON.stringify(options)}`;
     if (this.cache.has(key)) {
       return this.cache.get(key);
@@ -207,10 +236,14 @@ export class MaterialFactory {
     switch (name) {
       case 'frame_steel': {
         const color = options.color || '#242426';
-        material = new THREE.MeshStandardMaterial({
+        const gloss = options.sheen === 'gloss', matte = options.sheen === 'matte';
+        material = new THREE.MeshPhysicalMaterial({
           color: new THREE.Color(color),
-          metalness: 0.45,
-          roughness: 0.38,
+          metalness: .12,
+          roughness: matte ? .72 : gloss ? .26 : .46,
+          clearcoat: matte ? 0 : gloss ? .85 : .25,
+          clearcoatRoughness: gloss ? .16 : .35,
+          bumpMap: this.createSurfaceMap('paint'), bumpScale: .00035,
           envMapIntensity: 1.0
         });
         break;
@@ -227,7 +260,8 @@ export class MaterialFactory {
           color: new THREE.Color().setScalar(.90 + (options.tone || 0) * .025),
           map: albedoTex,
           normalMap: normalTex,
-          normalScale: new THREE.Vector2(0.85, 0.85),
+          normalScale: new THREE.Vector2(.25, .25),
+          roughnessMap: this.createSurfaceMap('wood'),
           roughness: 0.85,
           metalness: 0.05
         });
@@ -244,7 +278,8 @@ export class MaterialFactory {
         material = new THREE.MeshStandardMaterial({
           map: albedoTex,
           normalMap: normalTex,
-          normalScale: new THREE.Vector2(1.2, 1.2),
+          normalScale: new THREE.Vector2(.45, .45),
+          roughnessMap: this.createSurfaceMap('brushed'),
           metalness: 0.85,
           roughness: 0.32,
           envMapIntensity: 1.2
@@ -257,7 +292,7 @@ export class MaterialFactory {
           color: new THREE.Color('#161618'),
           metalness: 0.08,
           roughness: 0.88,
-          roughnessMap: null
+          roughnessMap: this.createSurfaceMap('rubber')
         });
         break;
       }
@@ -267,6 +302,7 @@ export class MaterialFactory {
           color: new THREE.Color('#d4d4d8'), // Steel gray rim
           metalness: 0.82,
           roughness: 0.28,
+          roughnessMap: this.createSurfaceMap('brushed'),
           envMapIntensity: 1.2
         });
         break;
@@ -277,6 +313,7 @@ export class MaterialFactory {
           color: new THREE.Color('#e2e8f0'), // Galvanized zinc
           metalness: 0.92,
           roughness: 0.22,
+          roughnessMap: this.createSurfaceMap('brushed'),
           envMapIntensity: 1.5
         });
         break;
@@ -343,5 +380,6 @@ export class MaterialFactory {
     this.textures.forEach(tex => tex.dispose());
     this.cache.clear();
     this.textures.clear();
+    this.surfaceMaps.clear();
   }
 }

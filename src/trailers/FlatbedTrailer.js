@@ -104,10 +104,14 @@ export class FlatbedTrailer extends BaseTrailer {
       this.chassisGroup.add(tapeMesh);
 
       // Stake pockets every 2 feet (0.61m)
+      const pocketShape = new THREE.Shape();
+      pocketShape.moveTo(-.04, -.027); pocketShape.lineTo(.04, -.027); pocketShape.lineTo(.04, .027); pocketShape.lineTo(-.04, .027); pocketShape.closePath();
+      const pocketHole = new THREE.Path();
+      pocketHole.moveTo(-.032, -.020); pocketHole.lineTo(-.032, .020); pocketHole.lineTo(.032, .020); pocketHole.lineTo(.032, -.020); pocketHole.closePath(); pocketShape.holes.push(pocketHole);
+      const pocketGeo = new THREE.ExtrudeGeometry(pocketShape, { depth: .10, bevelEnabled: false, steps: 1 }); pocketGeo.rotateX(Math.PI / 2);
       for (let px = 0.6; px < bedLengthM - 0.3; px += 0.61) {
-        const pocketGeo = new THREE.BoxGeometry(0.06, 0.10, 0.05);
         const pocketMesh = new THREE.Mesh(pocketGeo, frameMat);
-        pocketMesh.position.set(px, deckHeightM - 0.04, outerZ + (side * 0.035));
+        pocketMesh.position.set(px, deckHeightM + .01, outerZ + (side * 0.035));
         pocketMesh.castShadow = true;
         this.chassisGroup.add(pocketMesh);
       }

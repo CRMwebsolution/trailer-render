@@ -6,6 +6,7 @@ An interactive trailer design studio built with Three.js, vanilla JavaScript and
 
 - Flatbed, hydraulic dump and enclosed cargo configurations.
 - Adjustable deck length and width, axle class, hitch, materials, finish and signage.
+- Matte, satin and gloss finishes, textured rubber and metal, safety-chain links, wiring and fasteners.
 - Continuous dump tilt, cargo-door opening, ramp deployment and telescoping jack controls.
 - Undo/redo, grouped slider edits, named example presets, saved thumbnails and recovery of the last design.
 - Tap or select trailer components to highlight assemblies, read explanations and open their settings.

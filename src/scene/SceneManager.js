@@ -11,7 +11,7 @@ import { PartInspector } from './PartInspector.js';
 import { CargoEnvelope } from './CargoEnvelope.js';
 
 const GEOMETRY_KEYS = ['trailerType', 'bedLengthFt', 'trailerWidthIn', 'fenderStyle',
-  'payloadClass', 'hitchStyle', 'deckMaterial', 'finishColor', 'rampStyle', 'rampLengthFt',
+  'payloadClass', 'hitchStyle', 'deckMaterial', 'finishColor', 'finishSheen', 'rampStyle', 'rampLengthFt',
   'dumpDoorStyle', 'cargoRearDoor', 'cargoSideDoor',
   'decalText', 'decalColor'];
 const DIMENSION_KEYS = ['bedLengthFt', 'trailerWidthIn', 'payloadClass', 'fenderStyle', 'showDimensions', 'measurementMode', 'measurementUnits', 'hitchStyle', 'trailerType'];
@@ -256,6 +256,7 @@ export class SceneManager {
     const divisor = state.trailerType === 'dump' ? 42 : 100;
     const poseOnly = sameType && !geometryChanged && changed(poseKey);
     if (geometryChanged) {
+      this.materials.finishSheen = state.finishSheen;
       if (!sameType) {
         this.activeTrailer?.dispose();
         this.activeTrailer = trailerFactory.create(state.trailerType, this.scene, this.materials);
