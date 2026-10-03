@@ -1,7 +1,7 @@
 /**
  * MaterialFactory.js
  * Generates and caches procedural PBR materials (wood grain, diamond plate, frame finishes, DOT tape).
- * Eliminates large external image downloads, enabling instant 60fps loads and zero asset-failure risks.
+ * Uses local canvas textures so the standard trailer models do not depend on remote image assets.
  */
 import * as THREE from 'three';
 
@@ -14,7 +14,7 @@ export class MaterialFactory {
   /**
    * Generates a procedural seamless treated wood plank texture.
    */
-  createWoodTextures() {
+  createWoodTextures(singleBoard = false) {
     const canvas = document.createElement('canvas');
     canvas.width = 1024;
     canvas.height = 1024;
@@ -25,7 +25,7 @@ export class MaterialFactory {
     ctx.fillRect(0, 0, 1024, 1024);
 
     // Subtle grain variation
-    const plankCount = 16;
+    const plankCount = singleBoard ? 1 : 16;
     const plankHeight = 1024 / plankCount;
 
     for (let p = 0; p < plankCount; p++) {
@@ -57,6 +57,7 @@ export class MaterialFactory {
     }
 
     const albedoTex = new THREE.CanvasTexture(canvas);
+    albedoTex.colorSpace = THREE.SRGBColorSpace;
     albedoTex.wrapS = THREE.RepeatWrapping;
     albedoTex.wrapT = THREE.RepeatWrapping;
 
@@ -141,6 +142,7 @@ export class MaterialFactory {
     }
 
     const albedoTex = new THREE.CanvasTexture(canvas);
+    albedoTex.colorSpace = THREE.SRGBColorSpace;
     albedoTex.wrapS = THREE.RepeatWrapping;
     albedoTex.wrapT = THREE.RepeatWrapping;
 
@@ -184,6 +186,7 @@ export class MaterialFactory {
     }
 
     const tapeTex = new THREE.CanvasTexture(canvas);
+    tapeTex.colorSpace = THREE.SRGBColorSpace;
     tapeTex.wrapS = THREE.RepeatWrapping;
     tapeTex.wrapT = THREE.ClampToEdgeWrapping;
     this.textures.add(tapeTex);
@@ -214,13 +217,14 @@ export class MaterialFactory {
       }
 
       case 'deck_wood': {
-        const { albedoTex, normalTex } = this.createWoodTextures();
+        const { albedoTex, normalTex } = this.createWoodTextures(options.singleBoard);
         const repeatX = options.repeatX || 1;
         const repeatY = options.repeatY || 3;
         albedoTex.repeat.set(repeatX, repeatY);
         normalTex.repeat.set(repeatX, repeatY);
 
         material = new THREE.MeshStandardMaterial({
+          color: new THREE.Color().setScalar(.90 + (options.tone || 0) * .025),
           map: albedoTex,
           normalMap: normalTex,
           normalScale: new THREE.Vector2(0.85, 0.85),

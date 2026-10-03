@@ -30,7 +30,7 @@ export class TowTruck {
     this.group.visible = false;
 
     this.buildTruck();
-    this.checkPresetModel();
+
   }
 
   buildTruck() {
@@ -198,146 +198,91 @@ export class TowTruck {
     });
   }
 
-  /**
-   * Check if a custom truck asset exists at /models/truck.glb or /models/truck.gltf
-   */
-  async checkPresetModel() {
-    try {
-      const res = await fetch('/models/truck.glb', { method: 'HEAD' });
-      if (res.ok) {
-        console.log('Found /models/truck.glb, auto-loading custom 3D truck model...');
-        this.loadCustomTruck('/models/truck.glb', 'Preset truck.glb');
-      }
-    } catch {
-      // Ignore if not present
-    }
-  }
-
-  /**
-   * Loads a custom 3D truck model (.glb or .gltf file, Blob, or URL)
-   */
-  loadCustomTruck(source, name = 'Custom Truck', onLoad, onError) {
+  async loadCustomTruck(source, name = 'Custom truck') {
+    const request = this.loadRequest = (this.loadRequest || 0) + 1;
     const loader = new GLTFLoader();
-
-    if (source instanceof File || source instanceof Blob) {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        loader.parse(
-          e.target.result,
-          '',
-          (gltf) => {
-            this.applyCustomModel(gltf.scene, name || source.name);
-            if (onLoad) onLoad(name || source.name);
-          },
-          (err) => {
-            console.error('Error parsing GLTF file:', err);
-            if (onError) onError(err);
-          }
-        );
-      };
-      reader.onerror = (err) => {
-        if (onError) onError(err);
-      };
-      reader.readAsArrayBuffer(source);
-    } else if (typeof source === 'string') {
-      loader.load(
-        source,
-        (gltf) => {
-          this.applyCustomModel(gltf.scene, name);
-          if (onLoad) onLoad(name);
-        },
-        undefined,
-        (err) => {
-          console.warn('Could not load truck model from URL:', source, err);
-          if (onError) onError(err);
+    let gltf;
+    if (source instanceof Blob) {
+      if (source.size > 75 * 1024 * 1024) throw new Error('Choose a model smaller than 75 MB.');
+      const bytes = await source.arrayBuffer();
+      if (source.name?.toLowerCase().endsWith('.gltf')) {
+        const contents = JSON.parse(new TextDecoder().decode(bytes));
+        const resources = [...(contents.buffers || []), ...(contents.images || [])];
+        if (resources.some(resource => resource.uri && !resource.uri.startsWith('data:'))) {
+          throw new Error('This GLTF needs external files. Export a single GLB with embedded textures instead.');
         }
-      );
+      }
+      gltf = await loader.parseAsync(bytes, '');
+    } else if (typeof source === 'string') {
+      gltf = await loader.loadAsync(source);
+    } else throw new Error('Choose a GLB or a self-contained GLTF model.');
+    if (this.disposed || request !== this.loadRequest) {
+      this.disposeImported(gltf.scene);
+      throw new Error('Model loading was cancelled.');
     }
+    try { this.applyCustomModel(gltf.scene, name); }
+    catch (error) { this.disposeImported(gltf.scene); throw error; }
+    return name;
   }
 
-  /**
-   * Auto-measures, scales, and aligns custom 3D model to trailer hitch receiver
-   */
-  applyCustomModel(modelScene, modelName) {
-    // Clear previous custom model
-    while (this.customTruckGroup.children.length > 0) {
-      const child = this.customTruckGroup.children[0];
-      this.customTruckGroup.remove(child);
-      if (child.geometry) child.geometry.dispose();
-    }
-
-    // Enable shadows on all child meshes
-    modelScene.traverse((child) => {
-      if (child.isMesh) {
-        child.castShadow = true;
-        child.receiveShadow = true;
-      }
-    });
-
-    // 1. Compute initial bounding box
-    const bbox = new THREE.Box3().setFromObject(modelScene);
-    const size = new THREE.Vector3();
-    bbox.getSize(size);
-
-    // 2. Auto-scale: target standard truck length is ~5.8 meters (F-250 specs)
-    const maxHorizontal = Math.max(size.x, size.z);
-    let scale = 1.0;
-    if (maxHorizontal > 50) {
-      // Model was saved in millimeters (e.g. ~5800mm)
-      scale = 5.8 / maxHorizontal;
-    } else if (maxHorizontal < 1.0) {
-      // Model was saved in tiny units
-      scale = 5.8 / maxHorizontal;
-    } else if (Math.abs(maxHorizontal - 5.8) > 2.0) {
-      scale = 5.8 / maxHorizontal;
-    }
-
-    modelScene.scale.set(scale, scale, scale);
-
-    // 3. Recompute bounding box after scale
-    bbox.setFromObject(modelScene);
-    bbox.getSize(size);
-
-    // 4. Orientation: truck should align along X-axis (length along X)
-    // If model length is along Z-axis, rotate 90 degrees around Y
-    if (size.z > size.x * 1.25) {
-      modelScene.rotation.y = Math.PI / 2;
-      bbox.setFromObject(modelScene);
-      bbox.getSize(size);
-    }
-
-    // 5. Alignment:
-    // - Wheels sit on ground (Y = 0)
-    // - Transversely centered (Z = 0)
-    // - Rear bumper aligns with +1.0m (receiver socket point)
-    const center = new THREE.Vector3();
-    bbox.getCenter(center);
-
-    modelScene.position.y -= bbox.min.y;
-    modelScene.position.z -= center.z;
-    modelScene.position.x += (1.05 - bbox.max.x);
-
-    this.customTruckGroup.add(modelScene);
+  applyCustomModel(model, name) {
+    const initial = new THREE.Box3().setFromObject(model);
+    const size = initial.getSize(new THREE.Vector3());
+    const length = Math.max(size.x, size.z);
+    if (!Number.isFinite(length) || length < .0001) throw new Error('This model contains no visible geometry.');
+    this.disposeImported(this.customTruckGroup);
+    this.customTruckGroup.clear();
+    const pivot = new THREE.Group();
+    pivot.add(model);
+    this.customTruckGroup.add(pivot);
+    this.customPivot = pivot;
+    this.baseRotation = size.z > size.x * 1.25 ? Math.PI / 2 : 0;
+    this.baseScale = (length > 50 || length < 1 || Math.abs(length - 5.8) > 2) ? 5.8 / length : 1;
+    this.customScale = 1; this.customOffset = 0; this.customFlip = false;
+    model.traverse(child => { if (child.isMesh) { child.castShadow = true; child.receiveShadow = true; } });
     this.isCustom = true;
-    this.customModelName = modelName || 'Custom 3D Truck';
-
-    // Switch view to custom model
+    this.customModelName = name;
     this.proceduralTruckGroup.visible = false;
     this.customTruckGroup.visible = true;
-
-    // Ensure truck visibility is on so user sees it right away
-    this.visible = true;
-    this.group.visible = true;
+    this.adjustCustomModel({});
   }
 
-  /**
-   * Switches back to the procedural Ford F-250 model
-   */
+  adjustCustomModel({ scale = this.customScale, offset = this.customOffset, flip = this.customFlip } = {}) {
+    if (!this.isCustom) return;
+    this.customScale = scale; this.customOffset = offset; this.customFlip = flip;
+    const pivot = this.customPivot;
+    pivot.position.set(0, 0, 0);
+    pivot.scale.setScalar(this.baseScale * scale);
+    pivot.rotation.y = this.baseRotation + (flip ? Math.PI : 0);
+    pivot.updateMatrixWorld(true);
+    const bounds = new THREE.Box3().setFromObject(pivot);
+    const center = bounds.getCenter(new THREE.Vector3());
+    pivot.position.set(1.05 - bounds.max.x + offset, -bounds.min.y, -center.z);
+    pivot.updateMatrixWorld(true);
+  }
+
   resetToProcedural() {
-    this.isCustom = false;
-    this.customModelName = '';
+    this.loadRequest = (this.loadRequest || 0) + 1;
+    this.disposeImported(this.customTruckGroup);
+    this.customTruckGroup.clear();
+    this.isCustom = false; this.customModelName = '';
     this.customTruckGroup.visible = false;
     this.proceduralTruckGroup.visible = true;
+  }
+
+  disposeImported(root) {
+    const geometries = new Set(), materials = new Set(), textures = new Set();
+    root.traverse(child => {
+      if (child.geometry) geometries.add(child.geometry);
+      for (const material of Array.isArray(child.material) ? child.material : [child.material]) {
+        if (!material) continue;
+        materials.add(material);
+        for (const value of Object.values(material)) if (value?.isTexture) textures.add(value);
+      }
+    });
+    geometries.forEach(geometry => geometry.dispose());
+    textures.forEach(texture => texture.dispose());
+    materials.forEach(material => material.dispose());
   }
 
   /**
@@ -363,10 +308,17 @@ export class TowTruck {
   }
 
   dispose() {
-    while (this.group.children.length > 0) {
-      const child = this.group.children[0];
-      this.group.remove(child);
-      if (child.geometry) child.geometry.dispose();
-    }
+    this.disposed = true;
+    this.loadRequest = (this.loadRequest || 0) + 1;
+    this.disposeImported(this.customTruckGroup);
+    const shared = new Set(this.materials.cache.values());
+    const owned = new Set();
+    this.proceduralTruckGroup.traverse(child => {
+      child.geometry?.dispose();
+      if (child.material && !shared.has(child.material)) owned.add(child.material);
+    });
+    owned.forEach(material => material.dispose());
+    this.group.clear();
+    this.group.removeFromParent();
   }
 }

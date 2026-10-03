@@ -138,15 +138,15 @@ export class BaseTrailer {
         // 3. Wheel Assemblies
         const isDual = (payloadClass === '20K' || payloadClass === '25K');
         if (isDual) {
-          const wheelInner = this.createWheelAssembly(tireRadiusM, rimMaterial, tireMaterial, hardwareMaterial);
+          const wheelInner = this.createWheelAssembly(tireRadiusM, rimMaterial, tireMaterial, hardwareMaterial, metrics);
           wheelInner.position.set(axleXM, axleElevationY, springZ + side * 0.14);
           axleSubGroup.add(wheelInner);
 
-          const wheelOuter = this.createWheelAssembly(tireRadiusM, rimMaterial, tireMaterial, hardwareMaterial);
+          const wheelOuter = this.createWheelAssembly(tireRadiusM, rimMaterial, tireMaterial, hardwareMaterial, metrics);
           wheelOuter.position.set(axleXM, axleElevationY, springZ + side * 0.36);
           axleSubGroup.add(wheelOuter);
         } else {
-          const wheel = this.createWheelAssembly(tireRadiusM, rimMaterial, tireMaterial, hardwareMaterial);
+          const wheel = this.createWheelAssembly(tireRadiusM, rimMaterial, tireMaterial, hardwareMaterial, metrics);
           wheel.position.set(axleXM, axleElevationY, springZ + side * 0.18);
           axleSubGroup.add(wheel);
         }
@@ -448,39 +448,47 @@ export class BaseTrailer {
     }
   }
 
-  createWheelAssembly(tireRadiusM, rimMat, tireMat, hardwareMat) {
-    const group = new THREE.Group();
-    const tireWidthM = 0.18;
-    const rimRadiusM = tireRadiusM * 0.55;
-
-    const tireGeo = new THREE.CylinderGeometry(tireRadiusM, tireRadiusM, tireWidthM, 24);
-    tireGeo.rotateX(Math.PI / 2);
-    const tireMesh = new THREE.Mesh(tireGeo, tireMat);
-    tireMesh.castShadow = true;
-    group.add(tireMesh);
-
-    const rimGeo = new THREE.CylinderGeometry(rimRadiusM, rimRadiusM, tireWidthM + 0.005, 24);
-    rimGeo.rotateX(Math.PI / 2);
-    const rimMesh = new THREE.Mesh(rimGeo, rimMat);
-    rimMesh.castShadow = true;
-    group.add(rimMesh);
-
-    const hubCapGeo = new THREE.CylinderGeometry(0.045, 0.045, tireWidthM + 0.02, 16);
-    hubCapGeo.rotateX(Math.PI / 2);
-    const hubCapMesh = new THREE.Mesh(hubCapGeo, hardwareMat);
-    group.add(hubCapMesh);
-
-    const lugCount = 6;
-    const lugCircleR = 0.065;
-    for (let l = 0; l < lugCount; l++) {
-      const angle = (l / lugCount) * Math.PI * 2;
-      const lugGeo = new THREE.CylinderGeometry(0.009, 0.009, 0.015, 8);
-      lugGeo.rotateX(Math.PI / 2);
-      const lugMesh = new THREE.Mesh(lugGeo, hardwareMat);
-      lugMesh.position.set(Math.cos(angle) * lugCircleR, Math.sin(angle) * lugCircleR, (tireWidthM / 2) + 0.008);
-      group.add(lugMesh);
+  createWheelAssembly(radius, rimMat, tireMat, hardwareMat, metrics) {
+    const group = new THREE.Group(); group.name = 'Wheel_Assembly';
+    const width = .205;
+    const rimRadius = metrics.payloadClass === '25K' ? .222 : metrics.payloadClass === 'single' || metrics.payloadClass === '10K' ? .1905 : .2032;
+    const profile = [
+      new THREE.Vector2(rimRadius, -width * .42), new THREE.Vector2(radius * .76, -width * .5),
+      new THREE.Vector2(radius * .94, -width * .44), new THREE.Vector2(radius, -width * .28),
+      new THREE.Vector2(radius, width * .28), new THREE.Vector2(radius * .94, width * .44),
+      new THREE.Vector2(radius * .76, width * .5), new THREE.Vector2(rimRadius, width * .42),
+      new THREE.Vector2(rimRadius, -width * .42)
+    ];
+    const tireGeo = new THREE.LatheGeometry(profile, 40); tireGeo.rotateX(Math.PI / 2);
+    const tire = new THREE.Mesh(tireGeo, tireMat); tire.castShadow = true; group.add(tire);
+    const tread = new THREE.InstancedMesh(new THREE.BoxGeometry(.038, .009, .043), tireMat, 144);
+    const matrix = new THREE.Matrix4(), rotation = new THREE.Quaternion();
+    for (let row = 0; row < 3; row++) {
+      for (let index = 0; index < 48; index++) {
+        const angle = (index + row * .35) / 48 * Math.PI * 2;
+        rotation.setFromAxisAngle(new THREE.Vector3(0, 0, 1), angle + Math.PI / 2);
+        matrix.compose(new THREE.Vector3(Math.cos(angle) * radius, Math.sin(angle) * radius, (row - 1) * .055), rotation, new THREE.Vector3(1, 1, 1));
+        tread.setMatrixAt(row * 48 + index, matrix);
+      }
     }
-
+    tread.castShadow = true; group.add(tread);
+    const rimGeo = new THREE.CylinderGeometry(rimRadius * .91, rimRadius * .91, width * .74, 32); rimGeo.rotateX(Math.PI / 2);
+    const rim = new THREE.Mesh(rimGeo, rimMat); rim.castShadow = true; group.add(rim);
+    for (const side of [-1, 1]) {
+      const bead = new THREE.Mesh(new THREE.TorusGeometry(rimRadius * .95, .012, 8, 40), rimMat);
+      bead.position.z = side * width * .42; group.add(bead);
+      const hubGeo = new THREE.CylinderGeometry(.05, .06, .045, 20); hubGeo.rotateX(Math.PI / 2);
+      const hub = new THREE.Mesh(hubGeo, hardwareMat); hub.position.z = side * width * .42; group.add(hub);
+      const count = Number.parseInt(metrics.lugPattern, 10) || 8;
+      const lugGeo = new THREE.CylinderGeometry(.008, .008, .018, 6); lugGeo.rotateX(Math.PI / 2);
+      const lugs = new THREE.InstancedMesh(lugGeo, hardwareMat, count);
+      for (let index = 0; index < count; index++) {
+        const angle = index / count * Math.PI * 2;
+        matrix.makeTranslation(Math.cos(angle) * .08, Math.sin(angle) * .08, side * (width * .42 + .012));
+        lugs.setMatrixAt(index, matrix);
+      }
+      group.add(lugs);
+    }
     return group;
   }
 
@@ -505,16 +513,17 @@ export class BaseTrailer {
   }
 
   clearGroup(group) {
-    while (group.children.length > 0) {
-      const child = group.children[0];
-      group.remove(child);
-      if (child.geometry) {
-        child.geometry.dispose();
+    const geometries = new Set(), owned = new Set();
+    group.traverse(child => {
+      if (child.geometry) geometries.add(child.geometry);
+      for (const material of Array.isArray(child.material) ? child.material : [child.material]) {
+        if (material?.userData.owned) owned.add(material);
       }
-      if (child.children && child.children.length > 0) {
-        this.clearGroup(child);
-      }
-    }
+      if (child.isInstancedMesh) child.dispose();
+    });
+    geometries.forEach(geometry => geometry.dispose());
+    owned.forEach(material => material.dispose());
+    group.clear();
   }
 
   dispose() {

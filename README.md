@@ -1,90 +1,57 @@
-# Pro-Trailer 3D: Procedural Utility Trailer Configurator
+# Pro-Trailer 3D
 
-A modular, procedural 3D utility trailer configurator web application built with **Three.js**, **Vanilla JavaScript (ES6 modules)**, and **Vite**.
+An interactive trailer design studio built with Three.js, vanilla JavaScript and Vite.
 
-Users can dynamically customize, inspect in real-time, compute key towing kinematics, and export production-ready 3D models (`.glb` format) directly from the browser.
+## What works
 
----
+- Flatbed, hydraulic dump and enclosed cargo configurations.
+- Adjustable deck length and width, axle class, hitch, materials, finish and signage.
+- Raised/lowered dump-bed motion with an attached hydraulic linkage.
+- Open/closed cargo ramp or barn doors.
+- Studio, dark and showroom lighting, plus camera presets that frame the actual model bounds.
+- Dimension labels for deck length, width and axle-group position.
+- Desktop layout with separate controls, preview and specifications; phone layout with a visible 3D preview and Customize/Specifications panels.
+- Save/load configuration JSON, shareable design addresses, PNG snapshots and binary GLB model export.
+- Local GLB and self-contained GLTF truck imports with scale, direction and longitudinal alignment controls.
+- Automatic/high/battery-saver rendering quality. The renderer stops drawing when the view is idle and pauses in hidden tabs.
+- Keyboard focus, labeled controls, pressed states and reduced-motion support.
 
-## 🚀 Key Features
+## Run locally
 
-### 1. Modular Trailer Architecture (OOP Hierarchy)
-- **BaseTrailer**: Core chassis, suspension, equalizers, axles, wheels, wiring, and rendering lifecycle.
-- **FlatbedTrailer**: Heavy-duty equipment trailer with treated wood or diamond-plate decks, slide-in or fold-flat equipment ramps.
-- **DumpTrailer**: Hydraulic dump trailer with interactive upward dumping tilt (42°), underbody scissor hoist linkage, dual barn doors, or 2-way spreader drop gate.
-- **CargoTrailer**: Enclosed cargo trailer with aerodynamic wedge V-nose, ATP diamond-plate stone guard, drop-down ramp door or barn doors, and 32" RV side door.
+Node.js 20.19+ or 22.12+ is recommended for the current lockfile and native Vite config loader.
 
-### 2. Physical Towing Kinematics & Clearances
-- **60/40 Weight Distribution**: Axle clusters algorithmically positioned to maintain optimum tongue weight across 10ft to 30ft deck lengths.
-- **Payload & Axle Classes**: Single Axle (3.5K), 10K Tandem, 14K Heavy Duty Tandem, 20K Dual-Tandem, and 25K Triple Axle with equalizers.
-- **Hitch Clearance Analysis**:
-  - **Bumper Pull (19" Receiver Height)**: Level receiver hitch coupling.
-  - **Gooseneck Tower**: Engineered with specific cab and bed-rail clearances for towing rigs.
-- **Breakover & Approach Angles**: Real-time clearance calculations based on deck height and ramp length.
-
-### 3. Fenders & Platform Options
-- **Selectable Widths**: 76" (Compact Utility), 83" (Standard Equipment), 96" (Commercial Wide), and 102" (Deck-Over).
-- **Fender Styles**:
-  - **Regular Teardrop**: Formed outer perimeter lips with center teardrop cusp and open wheel wells.
-  - **Heavy Drive-Over Fenders**: 3/16" diamond plate with 35° approach and departure ramps.
-  - **Deck-Over**: Elevated flat deck spanning over the wheels with stake pockets and rub rails.
-
-### 4. Environments & Tow Vehicle
-- **Studio Lighting Modes**:
-  - **Dark CAD**: Technical blueprint dark environment with millimeter engineering grid.
-  - **White Studio**: Clean infinity floor commercial photography studio.
-  - **Luxury Showroom**: Polished epoxy display turntable with brushed aluminum rim, cyan LED halo perimeter ring, overhead studio softbox light banks, and focused spotlights.
-- **Tow Vehicle**:
-  - Built-in procedural 2016 Ford F-250 SRW Crew Cab 6.5ft Bed.
-  - **Custom 3D Truck Support**: Load any external `.glb` or `.gltf` 3D truck model via UI file picker or by placing it in `public/models/truck.glb`.
-
-### 5. GLTF/GLB Export
-- Export customized trailer assemblies directly to standard `.glb` format for CAD, AR/VR, or 3D rendering.
-
----
-
-## 🛠️ Tech Stack
-- **Frontend**: HTML5, Modern CSS3, Vanilla ES6 JavaScript modules
-- **3D Graphics**: Three.js (r173) with OrbitControls and GLTFExporter
-- **Build Tool**: Vite 6
-
----
-
-## 📦 Getting Started
-
-### Prerequisites
-- Node.js (v18 or higher)
-- npm or yarn
-
-### Installation
-```bash
-# Clone the repository
-git clone git@github.com:CRMwebsolution/trailer-render.git
-
-# Navigate to project directory
-cd trailer-render
-
-# Install dependencies
-npm install
-```
-
-### Development
-```bash
+```sh
+npm ci
 npm run dev
 ```
 
-### Production Build
-```bash
+```sh
 npm run build
 npm run preview
-```
-
-### Run Unit Tests
-```bash
 npm test
 ```
 
----
+`npm test` checks configuration normalization, saved/shared designs, metric invariants and camera fitting. It does not validate real trailer engineering.
 
-## 📄 License
-MIT License
+## Important model limits
+
+This is a visualization tool. Estimated weights use approximate material allowances; the axle-group location is a fixed 60% of deck length. Empty hitch weight assumes 12.5% for bumper pull and 22% for gooseneck. The application does not calculate loaded weight distribution, vehicle capacity, turning collision, structural strength or vehicle breakover clearance. Use manufacturer ratings and measured dimensions for real equipment.
+
+The weight class describes the chosen modeled rating, not a certification of the generated design. Cargo configurations use an A-frame bumper-pull hitch. Dual-wheel classes require the raised 102-inch deck-over platform. Exported GLB files contain visualization meshes, not fabrication-ready CAD drawings.
+
+## Truck models
+
+The built-in truck is a simplified visual reference. Import a `.glb` with embedded textures through **Tow vehicle & display**. A `.gltf` is supported when its buffers and images are embedded; multi-file GLTF packages should be exported as GLB first.
+
+The source GMC model is in `assets/1999 GMC Sierra 1500 truck/truck.blend`. It is not a browser-ready model. Open it in Blender, verify/relink its textures, and export as **glTF Binary (.glb)**. The export can then be loaded through the viewer. The application no longer probes a missing truck URL during startup.
+
+Uploaded trucks are roughly aligned from their bounding box. Use the scale, hitch-alignment and reverse-direction controls to refine their position. This is visual alignment and does not verify towing compatibility. Custom truck data stays in the browser and is not embedded in saved/shared configurations or the trailer-only GLB export.
+
+## Project structure
+
+- `src/core/`: configuration rules, state and illustrative metrics.
+- `src/trailers/`: reusable trailer assemblies and moving parts.
+- `src/scene/`: renderer, camera, materials, dimensions and truck imports.
+- `src/ui/`: controls, design actions and specifications.
+- `src/export/`: binary GLB export.
+- `src/tests/`: regression checks.

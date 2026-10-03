@@ -184,29 +184,38 @@ export class FlatbedTrailer extends BaseTrailer {
     const flatLengthM = bedLengthM - dovetailLengthM;
     const effectiveDeckWidthM = deckOver ? bedWidthM : (bedWidthM - 0.1);
 
-    // 1. Flat main deck
-    const flatDeckGeo = new THREE.BoxGeometry(flatLengthM, deckThicknessM, effectiveDeckWidthM);
-    const flatDeckMesh = new THREE.Mesh(flatDeckGeo, deckMat);
-    flatDeckMesh.position.set(flatLengthM / 2, deckHeightM + (deckThicknessM / 2), 0);
-    flatDeckMesh.castShadow = true;
-    flatDeckMesh.receiveShadow = true;
-    this.deckGroup.add(flatDeckMesh);
-
-    // 2. Sloped Dovetail Deck (if present)
-    if (hasDovetail) {
-      const dovetailHypotenuse = Math.sqrt(dovetailLengthM * dovetailLengthM + dovetailDropM * dovetailDropM);
-      const dovetailAngle = Math.atan2(dovetailDropM, dovetailLengthM);
-      const doveDeckGeo = new THREE.BoxGeometry(dovetailHypotenuse, deckThicknessM, effectiveDeckWidthM);
-      const doveDeckMesh = new THREE.Mesh(doveDeckGeo, deckMat);
-      doveDeckMesh.rotation.z = -dovetailAngle;
-      doveDeckMesh.position.set(
-        flatLengthM + (dovetailLengthM / 2),
-        deckHeightM - (dovetailDropM / 2) + (deckThicknessM / 2),
-        0
-      );
-      doveDeckMesh.castShadow = true;
-      doveDeckMesh.receiveShadow = true;
-      this.deckGroup.add(doveDeckMesh);
+    const boardCount = Math.max(1, Math.round(effectiveDeckWidthM / .145));
+    const boardWidth = effectiveDeckWidthM / boardCount;
+    const sections = [{ length: flatLengthM, x: flatLengthM / 2, y: deckHeightM + deckThicknessM / 2, angle: 0 }];
+    if (hasDovetail) sections.push({
+      length: Math.hypot(dovetailLengthM, dovetailDropM),
+      x: flatLengthM + dovetailLengthM / 2,
+      y: deckHeightM - dovetailDropM / 2 + deckThicknessM / 2,
+      angle: -Math.atan2(dovetailDropM, dovetailLengthM)
+    });
+    for (const section of sections) {
+      const wood = config.deckMaterial === 'wood';
+      for (let index = 0; index < (wood ? boardCount : 1); index++) {
+        const material = wood ? this.materials.getMaterial('deck_wood', {
+          repeatX: Math.max(1, Math.round(metrics.bedLengthFt / 8)), repeatY: 1,
+          singleBoard: true, tone: index % 5
+        }) : deckMat;
+        const mesh = new THREE.Mesh(new THREE.BoxGeometry(section.length, deckThicknessM, wood ? boardWidth - .003 : effectiveDeckWidthM), material);
+        mesh.position.set(section.x, section.y, wood ? -effectiveDeckWidthM / 2 + boardWidth * (index + .5) : 0);
+        mesh.rotation.z = section.angle;
+        mesh.castShadow = mesh.receiveShadow = true;
+        this.deckGroup.add(mesh);
+      }
+    }
+    // Recessed tie-down rings add useful detail along both deck edges.
+    const hardware = this.materials.getMaterial('zinc_hardware');
+    for (const fraction of [.14, .45, .76]) {
+      for (const side of [-1, 1]) {
+        const ring = new THREE.Mesh(new THREE.TorusGeometry(.045, .009, 6, 18), hardware);
+        ring.rotation.x = -Math.PI / 2;
+        ring.position.set(flatLengthM * fraction, deckHeightM + deckThicknessM + .008, side * (effectiveDeckWidthM / 2 - .10));
+        ring.castShadow = true; this.deckGroup.add(ring);
+      }
     }
   }
 

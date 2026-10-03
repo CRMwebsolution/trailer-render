@@ -150,6 +150,7 @@ export class DumpTrailer extends BaseTrailer {
     this.buildDumpRearGate(dumpBedGroup, bedWidthM, wallHeightM, floorThickM, config.dumpDoorStyle, frameMat, chromeMat);
 
     this.deckGroup.add(dumpBedGroup);
+    this.dumpBed = dumpBedGroup;
 
     // 5. Non-Piercing Hydraulic Scissor Hoist / Telescopic Ram (Items 6 & 7)
     this.buildHydraulicHoist(bedLengthM, deckHeightM, isRaised, dumpAngleRad, frameMat, chromeMat);
@@ -222,97 +223,53 @@ export class DumpTrailer extends BaseTrailer {
    * Hydraulic Scissor Hoist: Located strictly beneath bed floor.
    * Extends dynamically when raised, fits neatly between chassis rails when lowered.
    */
-  buildHydraulicHoist(bedLengthM, deckHeightM, isRaised, dumpAngleRad, frameMat, chromeMat) {
-    const hoistGroup = new THREE.Group();
-    hoistGroup.name = 'Hydraulic_Scissor_Hoist';
-
-    const subframeLowerY = deckHeightM - 0.22;
-    const hoistBaseX = bedLengthM * 0.38;
-    const basePos = new THREE.Vector3(hoistBaseX, subframeLowerY, 0);
-
-    // Chassis Lower Mounting Crossmember & Pivot Brackets
-    [-0.20, 0.20].forEach(z => {
-      const bGeo = new THREE.BoxGeometry(0.35, 0.08, 0.06);
-      const bMesh = new THREE.Mesh(bGeo, frameMat);
-      bMesh.position.set(hoistBaseX, subframeLowerY, z);
-      bMesh.castShadow = true;
-      hoistGroup.add(bMesh);
+  buildHydraulicHoist(bedLengthM, deckHeightM, isRaised, _angle, frameMat, chromeMat) {
+    const group = new THREE.Group();
+    group.name = 'Hydraulic_Hoist';
+    this.hoistBase = new THREE.Vector3(bedLengthM * .38, deckHeightM - .22, 0);
+    this.hoistLength = bedLengthM;
+    this.hoistDeckHeight = deckHeightM;
+    this.barrel = new THREE.Mesh(new THREE.CylinderGeometry(.065, .065, 1, 20), frameMat);
+    this.shaft = new THREE.Mesh(new THREE.CylinderGeometry(.035, .035, 1, 20), chromeMat);
+    this.barrel.castShadow = this.shaft.castShadow = true;
+    group.add(this.barrel, this.shaft);
+    this.hoistArms = [-.18, .18].map(z => {
+      const arm = new THREE.Mesh(new THREE.BoxGeometry(.045, 1, .035), frameMat);
+      arm.userData.z = z; arm.castShadow = true; group.add(arm); return arm;
     });
+    const pinGeometry = new THREE.CylinderGeometry(.035, .035, .46, 16);
+    pinGeometry.rotateX(Math.PI / 2);
+    const basePin = new THREE.Mesh(pinGeometry, chromeMat);
+    basePin.position.copy(this.hoistBase);
+    this.upperPin = new THREE.Mesh(pinGeometry, chromeMat);
+    group.add(basePin, this.upperPin);
+    this.chassisGroup.add(group);
+    this.setPose(isRaised ? 1 : 0);
+  }
 
-    const crossBeamGeo = new THREE.CylinderGeometry(0.035, 0.035, 0.46, 16);
-    crossBeamGeo.rotateX(Math.PI / 2);
-    const crossBeam = new THREE.Mesh(crossBeamGeo, chromeMat);
-    crossBeam.position.set(hoistBaseX, subframeLowerY + 0.04, 0);
-    hoistGroup.add(crossBeam);
-
-    if (isRaised) {
-      // Bed rotates around rear hinge (bedLengthM, deckHeightM - 0.04) by -dumpAngleRad
-      const rearHingeX = bedLengthM;
-      const rearHingeY = deckHeightM - 0.04;
-      const distFromHinge = bedLengthM * 0.55;
-
-      const bedMountX = rearHingeX - (distFromHinge * Math.cos(dumpAngleRad));
-      const bedMountY = rearHingeY + (distFromHinge * Math.sin(dumpAngleRad));
-      const bedMountPos = new THREE.Vector3(bedMountX, bedMountY, 0);
-
-      // Hydraulic ram vector from chassis base to bed underside
-      const ramVec = new THREE.Vector3().subVectors(bedMountPos, basePos);
-      const ramLen = ramVec.length();
-      const ramDir = ramVec.clone().normalize();
-      const ramQuat = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), ramDir);
-
-      // 1. Lower Outer Hydraulic Barrel (anchored to chassis pivot)
-      const barrelLen = ramLen * 0.55;
-      const barrelGeo = new THREE.CylinderGeometry(0.065, 0.065, barrelLen, 16);
-      const barrelMesh = new THREE.Mesh(barrelGeo, frameMat);
-      barrelMesh.quaternion.copy(ramQuat);
-      barrelMesh.position.copy(basePos).addScaledVector(ramDir, barrelLen / 2);
-      barrelMesh.castShadow = true;
-      hoistGroup.add(barrelMesh);
-
-      // 2. Telescopic Chrome Hydraulic Ram Shaft (extending to dump bed underside)
-      const shaftLen = ramLen * 0.55;
-      const shaftGeo = new THREE.CylinderGeometry(0.042, 0.042, shaftLen, 16);
-      const shaftMesh = new THREE.Mesh(shaftGeo, chromeMat);
-      shaftMesh.quaternion.copy(ramQuat);
-      shaftMesh.position.copy(bedMountPos).addScaledVector(ramDir, -shaftLen / 2);
-      shaftMesh.castShadow = true;
-      hoistGroup.add(shaftMesh);
-
-      // 3. Heavy Scissor Stabilizer Arms
-      [-0.18, 0.18].forEach(z => {
-        const arm = new THREE.Mesh(new THREE.BoxGeometry(0.05, ramLen * 0.75, 0.04), frameMat);
-        arm.quaternion.copy(ramQuat);
-        arm.position.copy(basePos).addScaledVector(ramDir, ramLen * 0.38);
-        arm.position.z = z;
-        arm.castShadow = true;
-        hoistGroup.add(arm);
-      });
-
-      // Upper Bed Mount Pin
-      const upperPinGeo = new THREE.CylinderGeometry(0.03, 0.03, 0.42, 16);
-      upperPinGeo.rotateX(Math.PI / 2);
-      const upperPin = new THREE.Mesh(upperPinGeo, chromeMat);
-      upperPin.position.copy(bedMountPos);
-      hoistGroup.add(upperPin);
-
-    } else {
-      // Lowered: Hoist lies flat between subframe rails, NEVER protruding above deckHeightM
-      const collapsedHoistGeo = new THREE.BoxGeometry(0.85, 0.09, 0.28);
-      const collapsedHoist = new THREE.Mesh(collapsedHoistGeo, frameMat);
-      collapsedHoist.position.set(hoistBaseX, subframeLowerY + 0.06, 0);
-      collapsedHoist.castShadow = true;
-      hoistGroup.add(collapsedHoist);
-
-      // Chrome Cylinder Barrel tucked under bed
-      const barrelGeo = new THREE.CylinderGeometry(0.055, 0.055, 0.75, 16);
-      barrelGeo.rotateZ(Math.PI / 2);
-      const barrel = new THREE.Mesh(barrelGeo, chromeMat);
-      barrel.position.set(hoistBaseX + 0.05, subframeLowerY + 0.06, 0);
-      hoistGroup.add(barrel);
+  setPose(value) {
+    this.pose = value;
+    const angle = value * THREE.MathUtils.degToRad(42);
+    this.dumpBed.rotation.z = -angle;
+    const mount = new THREE.Vector3(this.hoistLength - this.hoistLength * .55 * Math.cos(angle),
+      this.hoistDeckHeight - .04 + this.hoistLength * .55 * Math.sin(angle), 0);
+    const direction = mount.clone().sub(this.hoistBase);
+    const length = direction.length(); direction.normalize();
+    const quaternion = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), direction);
+    const barrelLength = Math.min(.8, length * .6);
+    this.barrel.scale.y = barrelLength;
+    this.barrel.quaternion.copy(quaternion);
+    this.barrel.position.copy(this.hoistBase).addScaledVector(direction, barrelLength / 2);
+    const shaftLength = length - barrelLength + .1;
+    this.shaft.scale.y = shaftLength;
+    this.shaft.quaternion.copy(quaternion);
+    this.shaft.position.copy(mount).addScaledVector(direction, -shaftLength / 2);
+    this.upperPin.position.copy(mount);
+    for (const arm of this.hoistArms) {
+      arm.scale.y = length * .86; arm.quaternion.copy(quaternion);
+      arm.position.copy(this.hoistBase).addScaledVector(direction, length * .43);
+      arm.position.z = arm.userData.z;
     }
-
-    this.chassisGroup.add(hoistGroup);
   }
 
   /**

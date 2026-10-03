@@ -110,6 +110,7 @@ export class CargoTrailer extends BaseTrailer {
 
     // 5. Rear Doors: Drop-Down Ramp Door vs Double Swing Doors (Item 12)
     this.buildRearCargoDoors(boxGroup, bedLengthM, bedWidthM, boxHeightM, deckHeightM, config.cargoRearDoor, skinMat, trimMat);
+    this.setPose(config.cargoDoorPosition === 'open' ? 1 : 0);
 
     this.deckGroup.add(boxGroup);
   }
@@ -189,6 +190,7 @@ export class CargoTrailer extends BaseTrailer {
     // Door Panel outline
     const panelGeo = new THREE.BoxGeometry(doorWidth, doorHeight, 0.03);
     const panelMat = new THREE.MeshStandardMaterial({ color: 0x1f242d, roughness: 0.4 });
+    panelMat.userData.owned = true;
     const panel = new THREE.Mesh(panelGeo, panelMat);
     panel.position.set(doorStartX + doorWidth / 2, deckY + (doorHeight / 2) + 0.05, doorZ);
     doorGroup.add(panel);
@@ -212,71 +214,55 @@ export class CargoTrailer extends BaseTrailer {
   /**
    * Rear Cargo Doors: Spring-Assisted Ramp Door vs Double Swing Barn Doors.
    */
-  buildRearCargoDoors(parentGroup, bedLen, bedW, boxH, deckY, doorStyle, skinMat, trimMat) {
-    const rearX = bedLen + 0.02;
-    const doorY = deckY + (boxH / 2);
-
-    if (doorStyle === 'barn') {
-      // ----------------- SIDE-BY-SIDE DOUBLE SWING BARN DOORS -----------------
-      const doorW = (bedW - 0.08) / 2;
-
-      [-1, 1].forEach(side => {
-        const doorGeo = new THREE.BoxGeometry(0.04, boxH - 0.08, doorW - 0.01);
-        const door = new THREE.Mesh(doorGeo, skinMat);
-        door.position.set(rearX, doorY, side * (doorW / 2 + 0.01));
-        door.castShadow = true;
-        parentGroup.add(door);
-
-        // Exterior heavy aluminum wrap hinges
-        [-boxH * 0.38, 0, boxH * 0.38].forEach(hy => {
-          const hingeGeo = new THREE.BoxGeometry(0.06, 0.06, 0.08);
-          const hinge = new THREE.Mesh(hingeGeo, trimMat);
-          hinge.position.set(rearX, doorY + hy, side * (bedW / 2 - 0.03));
-          parentGroup.add(hinge);
-        });
-
-        // Vertical Cam-Action Lock Rod
-        const rodGeo = new THREE.CylinderGeometry(0.015, 0.015, boxH - 0.06, 12);
-        const rod = new THREE.Mesh(rodGeo, trimMat);
-        rod.position.set(rearX + 0.03, doorY, side * (doorW * 0.85));
-        parentGroup.add(rod);
-
-        // Cam Lock Handle
-        const handleGeo = new THREE.BoxGeometry(0.03, 0.04, 0.22);
-        const handle = new THREE.Mesh(handleGeo, trimMat);
-        handle.position.set(rearX + 0.05, doorY - 0.2, side * (doorW * 0.85));
-        parentGroup.add(handle);
-      });
-
+  buildRearCargoDoors(parent, bedLen, bedW, boxH, deckY, style, skinMat, trimMat) {
+    this.rearDoorPivots = [];
+    const rearX = bedLen + .02;
+    if (style === 'barn') {
+      const width = (bedW - .08) / 2;
+      for (const side of [-1, 1]) {
+        const pivot = new THREE.Group();
+        pivot.name = `Cargo_Barn_Door_${side}`;
+        pivot.position.set(rearX, deckY + .04, side * (bedW / 2 - .04));
+        pivot.userData.side = side;
+        const door = new THREE.Mesh(new THREE.BoxGeometry(.045, boxH - .08, width - .01), skinMat);
+        door.position.set(0, (boxH - .08) / 2, -side * width / 2);
+        door.castShadow = true; pivot.add(door);
+        const rod = new THREE.Mesh(new THREE.CylinderGeometry(.012, .012, boxH - .18, 12), trimMat);
+        rod.position.set(.04, (boxH - .08) / 2, -side * width * .8); pivot.add(rod);
+        const handle = new THREE.Mesh(new THREE.BoxGeometry(.04, .035, .18), trimMat);
+        handle.position.set(.065, boxH * .4, -side * width * .8); pivot.add(handle);
+        for (const y of [.18, boxH / 2, boxH - .2]) {
+          const hinge = new THREE.Mesh(new THREE.BoxGeometry(.07, .065, .10), trimMat);
+          hinge.position.set(.015, y, 0); pivot.add(hinge);
+        }
+        parent.add(pivot); this.rearDoorPivots.push(pivot);
+      }
+      this.rearDoorStyle = 'barn';
     } else {
-      // ----------------- DROP-DOWN SPRING-ASSISTED RAMP DOOR -----------------
-      const rampDoorGeo = new THREE.BoxGeometry(0.05, boxH - 0.08, bedW - 0.08);
-      const rampDoor = new THREE.Mesh(rampDoorGeo, skinMat);
-      rampDoor.position.set(rearX, doorY, 0);
-      rampDoor.castShadow = true;
-      parentGroup.add(rampDoor);
+      const pivot = new THREE.Group(); pivot.name = 'Cargo_Ramp_Door';
+      pivot.position.set(rearX, deckY + .025, 0);
+      const length = boxH - .08;
+      const door = new THREE.Mesh(new THREE.BoxGeometry(.045, length, bedW - .08), skinMat);
+      door.position.y = length / 2; door.castShadow = true; pivot.add(door);
+      const inside = new THREE.Mesh(new THREE.BoxGeometry(.008, length - .04, bedW - .14), this.materials.getMaterial('deck_wood'));
+      inside.position.set(-.028, length / 2, 0); inside.receiveShadow = true; pivot.add(inside);
+      const hingeGeo = new THREE.CylinderGeometry(.025, .025, bedW - .06, 16); hingeGeo.rotateX(Math.PI / 2);
+      pivot.add(new THREE.Mesh(hingeGeo, trimMat));
+      for (const side of [-1, 1]) {
+        const latch = new THREE.Mesh(new THREE.BoxGeometry(.045, .13, .04), trimMat);
+        latch.position.set(.04, length * .65, side * (bedW / 2 - .10)); pivot.add(latch);
+      }
+      parent.add(pivot); this.rearDoorPivots.push(pivot);
+      this.rearDoorStyle = 'ramp';
+      this.openRampAngle = -Math.acos(-Math.min(.95, (deckY + .025) / length));
+    }
+  }
 
-      // Continuous Bottom Piano Hinge
-      const hingeGeo = new THREE.CylinderGeometry(0.02, 0.02, bedW - 0.06, 16);
-      hingeGeo.rotateX(Math.PI / 2);
-      const hinge = new THREE.Mesh(hingeGeo, trimMat);
-      hinge.position.set(rearX, deckY + 0.04, 0);
-      parentGroup.add(hinge);
-
-      // Top Spring Cable Drums
-      [-1, 1].forEach(side => {
-        const drumGeo = new THREE.CylinderGeometry(0.045, 0.045, 0.06, 16);
-        drumGeo.rotateX(Math.PI / 2);
-        const drum = new THREE.Mesh(drumGeo, trimMat);
-        drum.position.set(rearX, deckY + boxH - 0.04, side * (bedW / 2 - 0.06));
-        parentGroup.add(drum);
-
-        // Dual Cam Latches with padlocks
-        const latchGeo = new THREE.BoxGeometry(0.04, 0.12, 0.04);
-        const latch = new THREE.Mesh(latchGeo, trimMat);
-        latch.position.set(rearX + 0.03, deckY + (boxH * 0.45), side * (bedW / 2 - 0.08));
-        parentGroup.add(latch);
-      });
+  setPose(value) {
+    this.pose = value;
+    for (const pivot of this.rearDoorPivots || []) {
+      if (this.rearDoorStyle === 'barn') pivot.rotation.y = -pivot.userData.side * Math.PI / 2 * value;
+      else pivot.rotation.z = this.openRampAngle * value;
     }
   }
 

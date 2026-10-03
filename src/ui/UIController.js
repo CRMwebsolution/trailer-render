@@ -1,521 +1,234 @@
-/**
- * UIController.js
- * Binds DOM form elements to StateStore, updates labels, manages UI conditional visibility,
- * and coordinates GLTF export actions.
- */
 import { store } from '../core/StateStore.js';
-import { globalBus } from '../core/EventBus.js';
+import { configurationURL, normalizeConfig } from '../core/config.js';
 import { gltfExporterService } from '../export/GLTFExporterService.js';
+
+const FIELDS = {
+  'select-trailer-type': 'trailerType', 'slider-bed-length': 'bedLengthFt',
+  'select-trailer-width': 'trailerWidthIn', 'select-payload-class': 'payloadClass',
+  'slider-ramp-length': 'rampLengthFt', 'check-cargo-side-door': 'cargoSideDoor',
+  'input-decal-text': 'decalText', 'select-render-quality': 'renderQuality'
+};
+const RADIOS = {
+  'fender-style': 'fenderStyle', 'hitch-style': 'hitchStyle', 'deck-mat': 'deckMaterial',
+  'ramp-style': 'rampStyle', 'ramp-pos': 'rampPosition', 'dump-bed-pos': 'dumpBedPosition',
+  'dump-door-style': 'dumpDoorStyle', 'cargo-rear-door': 'cargoRearDoor', 'cargo-door-pos': 'cargoDoorPosition'
+};
+const $ = id => document.getElementById(id);
 
 export class UIController {
   constructor(sceneManager) {
     this.sceneManager = sceneManager;
-    this.initElements();
+    this.pending = {};
+    this.abort = new AbortController();
     this.bindEvents();
-    this.syncFromState(store.getState());
+    this.unsubscribe = store.subscribe(state => this.syncFromState(state));
   }
+  listen(element, event, callback) {
+    element?.addEventListener(event, callback, { signal: this.abort.signal });
+  }
+  click(id, callback) {
+    this.listen($(id), 'click', async () => {
+      this.flush();
+      try { await callback(); } catch (error) { this.showToast(error.message || 'That action could not be completed.'); }
+    });
+  }
+  queue(values, delay = 0) {
+    Object.assign(this.pending, values);
+    clearTimeout(this.inputTimer);
+    this.inputTimer = setTimeout(() => this.flush(), delay);
+  }
+  flush() {
+    clearTimeout(this.inputTimer);
+    if (!Object.keys(this.pending).length) return;
+    const next = this.pending;
+    this.pending = {};
+    store.update(next);
+  }
+  update(values) { this.flush(); store.update(values); }
 
-  initElements() {
-    // 1. Trailer Platform & Dimensions
-    this.selectTrailerType = document.getElementById('select-trailer-type');
-    this.sliderBedLength = document.getElementById('slider-bed-length');
-    this.labelBedLength = document.getElementById('val-bed-length');
-    this.selectTrailerWidth = document.getElementById('select-trailer-width');
-
-    // 2. Fenders & Deck Style
-    this.groupFenderControls = document.getElementById('group-fender-controls');
-    this.radioFenderRegular = document.getElementById('fender-regular');
-    this.radioFenderDriveover = document.getElementById('fender-driveover');
-    this.radioFenderDeckover = document.getElementById('fender-deckover');
-
-    // 3. Payload Class
-    this.selectPayloadClass = document.getElementById('select-payload-class');
-
-    // 4. Hitch Configuration
-    this.groupHitchControls = document.getElementById('group-hitch-controls');
-    this.radioHitchBP = document.getElementById('hitch-bp');
-    this.radioHitchGN = document.getElementById('hitch-gn');
-
-    // 5. Decking & Finish
-    this.groupDeckControls = document.getElementById('group-deck-controls');
-    this.radioDeckWood = document.getElementById('deck-wood');
-    this.radioDeckSteel = document.getElementById('deck-steel');
-    this.frameColorSwatches = document.querySelectorAll('.frame-color-swatch');
-
-    // 6. Ramps (Flatbed)
-    this.groupRampControls = document.getElementById('group-ramp-controls');
-    this.radioRampSlide = document.getElementById('ramp-slide');
-    this.radioRampFold = document.getElementById('ramp-fold');
-    this.sliderRampLength = document.getElementById('slider-ramp-length');
-    this.labelRampLength = document.getElementById('val-ramp-length');
-    this.groupRampLength = document.getElementById('group-ramp-length');
-    this.radioRampPosStowed = document.getElementById('ramp-pos-stowed');
-    this.radioRampPosDeployed = document.getElementById('ramp-pos-deployed');
-    this.radioRampPosStanding = document.getElementById('ramp-pos-standing');
-    this.optionRampStanding = document.getElementById('option-ramp-standing');
-
-    // 7. Dump Trailer Specifics
-    this.groupDumpControls = document.getElementById('group-dump-controls');
-    this.radioDumpPosLowered = document.getElementById('dump-pos-lowered');
-    this.radioDumpPosRaised = document.getElementById('dump-pos-raised');
-    this.radioDumpDoorBarn = document.getElementById('dump-door-barn');
-    this.radioDumpDoorSpreader = document.getElementById('dump-door-spreader');
-
-    // 8. Cargo Trailer Specifics
-    this.groupCargoControls = document.getElementById('group-cargo-controls');
-    this.radioCargoDoorRamp = document.getElementById('cargo-door-ramp');
-    this.radioCargoDoorBarn = document.getElementById('cargo-door-barn');
-    this.checkCargoSideDoor = document.getElementById('check-cargo-side-door');
-
-    // 9. Signage & Custom Decals
-    this.groupSignageControls = document.getElementById('group-signage-controls');
-    this.inputDecalText = document.getElementById('input-decal-text');
-    this.decalColorSwatches = document.querySelectorAll('.decal-color-swatch');
-
-    // 10. Top Bar Actions & Camera
-    this.envPresetBtns = document.querySelectorAll('.env-preset-btn[data-env]');
-    this.btnToggleTruck = document.getElementById('btn-toggle-truck');
-    this.truckBtnText = document.getElementById('truck-btn-text');
-    this.inputTruckFile = document.getElementById('input-truck-file');
-    this.btnResetTruck = document.getElementById('btn-reset-truck');
-    this.cameraPresetBtns = document.querySelectorAll('.camera-preset-btn');
-    this.btnToggleDimensions = document.getElementById('btn-toggle-dimensions');
-    this.btnExport = document.getElementById('btn-export-glb');
-    this.toastContainer = document.getElementById('toast-container');
+  bindEvents() {
+    for (const [id, key] of Object.entries(FIELDS)) {
+      const element = $(id);
+      const isInput = element.type === 'range' || element.type === 'text';
+      this.listen(element, isInput ? 'input' : 'change', () => {
+        let value = element.type === 'checkbox' ? element.checked : element.value;
+        if (['bedLengthFt', 'rampLengthFt', 'trailerWidthIn'].includes(key)) value = Number(value);
+        const update = { [key]: value };
+        if (key === 'trailerWidthIn') update.fenderStyle = value === 102 ? 'deck_over' : 'regular';
+        if (isInput) this.queue(update, element.type === 'text' ? 180 : 16);
+        else this.update(update);
+        if (id === 'slider-bed-length') $('val-bed-length').textContent = `${value} ft`;
+        if (id === 'slider-ramp-length') $('val-ramp-length').textContent = `${value.toFixed(1)} ft`;
+      });
+      if (isInput) this.listen(element, 'change', () => this.flush());
+    }
+    for (const [name, key] of Object.entries(RADIOS)) {
+      document.querySelectorAll(`input[name="${name}"]`).forEach(input => {
+        this.listen(input, 'change', () => { if (input.checked) this.update({ [key]: input.value }); });
+      });
+    }
+    document.querySelectorAll('[data-color]').forEach(button => this.listen(button, 'click', () => this.update({ finishColor: button.dataset.color })));
+    document.querySelectorAll('[data-decal-color]').forEach(button => this.listen(button, 'click', () => this.update({ decalColor: button.dataset.decalColor })));
+    document.querySelectorAll('[data-env]').forEach(button => this.listen(button, 'click', () => this.update({ environmentMode: button.dataset.env })));
+    document.querySelectorAll('[data-preset]').forEach(button => this.listen(button, 'click', () => {
+      this.update({ cameraPreset: button.dataset.preset });
+      this.sceneManager.setCameraPreset(button.dataset.preset);
+    }));
+    document.querySelectorAll('[data-panel]').forEach(button => this.listen(button, 'click', () => {
+      $('app').dataset.mobilePanel = button.dataset.panel;
+      document.querySelectorAll('[data-panel]').forEach(other => other.setAttribute('aria-pressed', String(other === button)));
+    }));
+    this.click('btn-fit-view', () => this.sceneManager.fitView());
+    this.click('btn-toggle-dimensions', () => this.update({ showDimensions: !store.getState().showDimensions }));
+    this.click('btn-toggle-truck', () => this.update({ showTowTruck: !store.getState().showTowTruck }));
+    this.click('btn-load-truck', () => $('input-truck-file').click());
+    this.listen($('input-truck-file'), 'change', async event => {
+      const file = event.target.files[0];
+      event.target.value = '';
+      if (!file) return;
+      $('btn-load-truck').disabled = true;
+      this.showToast('Loading truck model…');
+      try {
+        await this.sceneManager.towTruck.loadCustomTruck(file, file.name);
+        this.update({ showTowTruck: true });
+        this.refreshTruck();
+        this.showToast('Truck loaded. Adjust its alignment under Tow vehicle & display.');
+      } catch (error) { this.showToast(error.message || 'This model could not be loaded.'); }
+      finally { $('btn-load-truck').disabled = false; }
+    });
+    this.click('btn-reset-truck', () => {
+      this.sceneManager.towTruck.resetToProcedural();
+      this.refreshTruck();
+    });
+    for (const id of ['truck-scale', 'truck-offset']) {
+      this.listen($(id), 'input', () => {
+        this.sceneManager.towTruck.adjustCustomModel({
+          scale: Number($('truck-scale').value) / 100, offset: Number($('truck-offset').value)
+        });
+        $('val-truck-scale').textContent = `${$('truck-scale').value}%`;
+        $('val-truck-offset').textContent = `${Number($('truck-offset').value).toFixed(2)} m`;
+        this.sceneManager.refreshTruck(false);
+      });
+    }
+    this.click('btn-flip-truck', () => {
+      this.sceneManager.towTruck.adjustCustomModel({ flip: !this.sceneManager.towTruck.customFlip });
+      this.sceneManager.refreshTruck();
+    });
+    this.click('btn-export-glb', async () => {
+      const button = $('btn-export-glb');
+      button.disabled = true;
+      button.setAttribute('aria-busy', 'true');
+      try {
+        this.sceneManager.finishMotion();
+        const result = await gltfExporterService.exportGLB(this.sceneManager.activeTrailer.rootGroup, store.getState(), store.getMetrics());
+        this.showToast(`Saved ${result.fileName}`);
+      } finally { button.disabled = false; button.removeAttribute('aria-busy'); }
+    });
+    this.click('btn-snapshot', async () => {
+      const blob = await this.sceneManager.createSnapshot();
+      this.download(blob, `trailer-${store.getState().trailerType}.png`);
+      this.showToast('Trailer image saved.');
+    });
+    this.click('btn-save-design', () => {
+      const contents = JSON.stringify({ version: 1, config: store.getState() }, null, 2);
+      this.download(new Blob([contents], { type: 'application/json' }), 'trailer-design.json');
+      this.showToast('Design saved. Custom truck files are loaded separately.');
+    });
+    this.click('btn-load-design', () => $('input-design-file').click());
+    this.listen($('input-design-file'), 'change', async event => {
+      const file = event.target.files[0];
+      event.target.value = '';
+      if (!file) return;
+      try {
+        if (file.size > 32000) throw new Error('Choose a trailer design JSON file smaller than 32 KB.');
+        const value = JSON.parse(await file.text());
+        if (value.version !== 1 || !value.config || typeof value.config !== 'object' || Array.isArray(value.config)) {
+          throw new Error('This file is not a supported trailer design.');
+        }
+        this.flush();
+        store.replace(normalizeConfig(value.config));
+        this.sceneManager.setCameraPreset(store.getState().cameraPreset);
+        this.showToast('Design restored.');
+      } catch (error) { this.showToast(error instanceof SyntaxError ? 'This file contains invalid JSON.' : error.message); }
+    });
+    this.click('btn-share-design', async () => {
+      const url = configurationURL(store.getState(), window.location.href);
+      try {
+        await navigator.clipboard.writeText(url);
+        this.showToast('Design address copied. Custom truck files are not included.');
+      } catch {
+        $('share-url').value = url;
+        $('share-dialog').showModal();
+        $('share-url').focus();
+        $('share-url').select();
+      }
+    });
   }
 
   syncFromState(state) {
-    if (!state) return;
-
-    // Platform & Dimensions
-    if (this.selectTrailerType && state.trailerType) {
-      this.selectTrailerType.value = state.trailerType;
+    for (const [id, key] of Object.entries(FIELDS)) {
+      const element = $(id);
+      if (element.type === 'checkbox') element.checked = state[key];
+      else if (document.activeElement !== element || !Object.hasOwn(this.pending, key)) element.value = state[key];
     }
-    if (this.sliderBedLength && state.bedLengthFt) {
-      this.sliderBedLength.value = state.bedLengthFt;
-      if (this.labelBedLength) this.labelBedLength.textContent = `${state.bedLengthFt} ft`;
+    for (const [name, key] of Object.entries(RADIOS)) {
+      document.querySelectorAll(`input[name="${name}"]`).forEach(input => { input.checked = input.value === state[key]; });
     }
-    if (this.selectTrailerWidth && state.trailerWidthIn) {
-      this.selectTrailerWidth.value = String(state.trailerWidthIn);
-    }
-
-    // Fenders
-    if (state.fenderStyle) {
-      if (this.radioFenderRegular) this.radioFenderRegular.checked = state.fenderStyle === 'regular';
-      if (this.radioFenderDriveover) this.radioFenderDriveover.checked = state.fenderStyle === 'drive_over';
-      if (this.radioFenderDeckover) this.radioFenderDeckover.checked = state.fenderStyle === 'deck_over';
-    }
-
-    // Payload & Hitch
-    if (this.selectPayloadClass && state.payloadClass) {
-      this.selectPayloadClass.value = state.payloadClass;
-    }
-    if (this.radioHitchBP && this.radioHitchGN && state.hitchStyle) {
-      this.radioHitchBP.checked = state.hitchStyle === 'bumper_pull';
-      this.radioHitchGN.checked = state.hitchStyle === 'gooseneck';
-    }
-
-    // Deck & Materials
-    if (this.radioDeckWood && this.radioDeckSteel && state.deckMaterial) {
-      this.radioDeckWood.checked = state.deckMaterial === 'wood';
-      this.radioDeckSteel.checked = state.deckMaterial === 'diamond_plate';
-    }
-
-    // Ramps
-    if (this.radioRampSlide && this.radioRampFold && state.rampStyle) {
-      this.radioRampSlide.checked = state.rampStyle === 'slide_in';
-      this.radioRampFold.checked = state.rampStyle === 'fold_flat';
-      this.updateRampUI(state.rampStyle);
-    }
-    if (this.sliderRampLength && state.rampLengthFt) {
-      this.sliderRampLength.value = state.rampLengthFt;
-      if (this.labelRampLength) this.labelRampLength.textContent = `${state.rampLengthFt.toFixed(1)} ft`;
-    }
-    if (this.radioRampPosStowed && this.radioRampPosDeployed && this.radioRampPosStanding && state.rampPosition) {
-      this.radioRampPosStowed.checked = state.rampPosition === 'stowed';
-      this.radioRampPosDeployed.checked = state.rampPosition === 'deployed';
-      this.radioRampPosStanding.checked = state.rampPosition === 'standing';
-    }
-
-    // Dump Trailer
-    if (this.radioDumpPosLowered && this.radioDumpPosRaised && state.dumpBedPosition) {
-      this.radioDumpPosLowered.checked = state.dumpBedPosition === 'lowered';
-      this.radioDumpPosRaised.checked = state.dumpBedPosition === 'raised';
-    }
-    if (this.radioDumpDoorBarn && this.radioDumpDoorSpreader && state.dumpDoorStyle) {
-      this.radioDumpDoorBarn.checked = state.dumpDoorStyle === 'barn';
-      this.radioDumpDoorSpreader.checked = state.dumpDoorStyle === 'spreader';
-    }
-
-    // Cargo Trailer
-    if (this.radioCargoDoorRamp && this.radioCargoDoorBarn && state.cargoRearDoor) {
-      this.radioCargoDoorRamp.checked = state.cargoRearDoor === 'ramp';
-      this.radioCargoDoorBarn.checked = state.cargoRearDoor === 'barn';
-    }
-    if (this.checkCargoSideDoor && typeof state.cargoSideDoor === 'boolean') {
-      this.checkCargoSideDoor.checked = state.cargoSideDoor;
-    }
-
-    // Signage
-    if (this.inputDecalText && state.decalText !== undefined) {
-      this.inputDecalText.value = state.decalText;
-    }
-
-    // Environment & Tow Truck
-    if (this.envPresetBtns && state.environmentMode) {
-      this.envPresetBtns.forEach(btn => {
-        btn.classList.toggle('active', btn.getAttribute('data-env') === state.environmentMode);
+    $('val-bed-length').textContent = `${state.bedLengthFt} ft`;
+    $('val-ramp-length').textContent = `${state.rampLengthFt.toFixed(1)} ft`;
+    for (const [selector, field, data] of [['[data-color]', 'finishColor', 'color'], ['[data-decal-color]', 'decalColor', 'decalColor'], ['[data-env]', 'environmentMode', 'env'], ['[data-preset]', 'cameraPreset', 'preset']]) {
+      document.querySelectorAll(selector).forEach(button => {
+        const active = button.dataset[data] === state[field];
+        button.classList.toggle('active', active);
+        button.setAttribute('aria-pressed', String(active));
       });
     }
-    if (this.btnToggleTruck) {
-      this.btnToggleTruck.classList.toggle('active', !!state.showTowTruck);
+    for (const [id, value] of [['btn-toggle-truck', state.showTowTruck], ['btn-toggle-dimensions', state.showDimensions]]) {
+      $(id).classList.toggle('active', value);
+      $(id).setAttribute('aria-pressed', String(value));
     }
-
-    // Update dynamic group visibility
-    this.updateTrailerTypeUI(state.trailerType);
+    $('group-ramp-controls').style.display = state.trailerType === 'flatbed' ? 'flex' : 'none';
+    $('group-dump-controls').style.display = state.trailerType === 'dump' ? 'flex' : 'none';
+    $('group-cargo-controls').style.display = state.trailerType === 'cargo' ? 'flex' : 'none';
+    $('group-hitch-controls').style.display = state.trailerType === 'cargo' ? 'none' : 'flex';
+    $('group-fender-controls').style.display = state.trailerType === 'cargo' ? 'none' : 'flex';
+    $('group-deck-controls').querySelector('.segmented-control').hidden = state.trailerType !== 'flatbed';
+    $('group-deck-controls').querySelector('.section-title span').textContent = state.trailerType === 'flatbed' ? 'Deck & finish' : 'Body finish';
+    $('group-ramp-length').style.display = state.rampStyle === 'slide_in' ? 'flex' : 'none';
+    $('option-ramp-standing').style.display = state.rampStyle === 'fold_flat' ? 'block' : 'none';
+    const dualWheels = ['20K', '25K'].includes(state.payloadClass);
+    $('fender-regular').disabled = dualWheels;
+    $('fender-driveover').disabled = dualWheels;
+    $('select-trailer-width').disabled = dualWheels;
+    $('configuration-note').hidden = !dualWheels;
+    const names = { flatbed: 'Flatbed / equipment', dump: 'Hydraulic dump', cargo: 'Enclosed cargo' };
+    $('model-title').textContent = names[state.trailerType];
+    $('model-dimensions').textContent = `${state.bedLengthFt} ft × ${state.trailerWidthIn} in · ${state.payloadClass === 'single' ? 'Single axle' : state.payloadClass}`;
   }
 
-  updateTrailerTypeUI(trailerType) {
-    if (trailerType === 'flatbed') {
-      if (this.groupRampControls) this.groupRampControls.style.display = 'flex';
-      if (this.groupDumpControls) this.groupDumpControls.style.display = 'none';
-      if (this.groupCargoControls) this.groupCargoControls.style.display = 'none';
-      if (this.groupFenderControls) this.groupFenderControls.style.display = 'flex';
-      if (this.groupDeckControls) this.groupDeckControls.style.display = 'flex';
-      if (this.groupHitchControls) this.groupHitchControls.style.display = 'flex';
-    } else if (trailerType === 'dump') {
-      if (this.groupRampControls) this.groupRampControls.style.display = 'none';
-      if (this.groupDumpControls) this.groupDumpControls.style.display = 'flex';
-      if (this.groupCargoControls) this.groupCargoControls.style.display = 'none';
-      if (this.groupFenderControls) this.groupFenderControls.style.display = 'flex';
-      if (this.groupDeckControls) this.groupDeckControls.style.display = 'none';
-      if (this.groupHitchControls) this.groupHitchControls.style.display = 'flex';
-    } else if (trailerType === 'cargo') {
-      if (this.groupRampControls) this.groupRampControls.style.display = 'none';
-      if (this.groupDumpControls) this.groupDumpControls.style.display = 'none';
-      if (this.groupCargoControls) this.groupCargoControls.style.display = 'flex';
-      if (this.groupFenderControls) this.groupFenderControls.style.display = 'none';
-      if (this.groupDeckControls) this.groupDeckControls.style.display = 'none';
-      if (this.groupHitchControls) this.groupHitchControls.style.display = 'none'; // A-frame standard on all cargo
-    }
+  refreshTruck() {
+    const custom = this.sceneManager.towTruck.isCustom;
+    $('btn-reset-truck').hidden = !custom;
+    $('custom-truck-controls').hidden = !custom;
+    $('truck-btn-text').textContent = custom ? 'Custom truck' : 'Tow vehicle';
+    $('truck-scale').value = '100'; $('truck-offset').value = '0';
+    $('val-truck-scale').textContent = '100%'; $('val-truck-offset').textContent = '0.00 m';
+    this.sceneManager.refreshTruck();
   }
-
-  bindEvents() {
-    // 1. Trailer Type
-    if (this.selectTrailerType) {
-      this.selectTrailerType.addEventListener('change', (e) => {
-        const newType = e.target.value;
-        store.update({ trailerType: newType });
-        this.updateTrailerTypeUI(newType);
-        this.showToast(`Switched trailer type to ${e.target.options[e.target.selectedIndex].text}`);
-      });
-    }
-
-    // 2. Bed Length Slider
-    if (this.sliderBedLength) {
-      this.sliderBedLength.addEventListener('input', (e) => {
-        const val = Number(e.target.value);
-        if (this.labelBedLength) this.labelBedLength.textContent = `${val} ft`;
-        store.update({ bedLengthFt: val });
-      });
-    }
-
-    // 3. Trailer Width Dropdown
-    if (this.selectTrailerWidth) {
-      this.selectTrailerWidth.addEventListener('change', (e) => {
-        const width = Number(e.target.value);
-        const updates = { trailerWidthIn: width };
-        if (width === 102) {
-          updates.fenderStyle = 'deck_over';
-        } else if (store.getState().fenderStyle === 'deck_over') {
-          updates.fenderStyle = 'regular';
-        }
-        store.update(updates);
-        this.syncFromState(store.getState());
-        this.showToast(`Set trailer width to ${width} inches`);
-      });
-    }
-
-    // 4. Fender & Deck Style
-    [this.radioFenderRegular, this.radioFenderDriveover, this.radioFenderDeckover].forEach(radio => {
-      if (radio) {
-        radio.addEventListener('change', (e) => {
-          if (e.target.checked) {
-            const style = e.target.value;
-            const updates = { fenderStyle: style };
-            if (style === 'deck_over') {
-              updates.trailerWidthIn = 102;
-            }
-            store.update(updates);
-            this.syncFromState(store.getState());
-          }
-        });
-      }
-    });
-
-    // 5. Payload Class Dropdown
-    if (this.selectPayloadClass) {
-      this.selectPayloadClass.addEventListener('change', (e) => {
-        store.update({ payloadClass: e.target.value });
-      });
-    }
-
-    // 6. Hitch Style Toggle
-    [this.radioHitchBP, this.radioHitchGN].forEach(radio => {
-      if (radio) {
-        radio.addEventListener('change', (e) => {
-          if (e.target.checked) {
-            store.update({ hitchStyle: e.target.value });
-            this.showToast(`Configured for ${e.target.value === 'gooseneck' ? 'Gooseneck Hitch' : 'Bumper Pull Receiver'}`);
-          }
-        });
-      }
-    });
-
-    // 7. Deck Material Toggle
-    [this.radioDeckWood, this.radioDeckSteel].forEach(radio => {
-      if (radio) {
-        radio.addEventListener('change', (e) => {
-          if (e.target.checked) {
-            store.update({ deckMaterial: e.target.value });
-          }
-        });
-      }
-    });
-
-    // 8. Frame Finish Color Swatches
-    this.frameColorSwatches.forEach(swatch => {
-      swatch.addEventListener('click', () => {
-        this.frameColorSwatches.forEach(s => s.classList.remove('active'));
-        swatch.classList.add('active');
-        const color = swatch.getAttribute('data-color');
-        store.update({ finishColor: color });
-      });
-    });
-
-    // 9. Ramp Style Toggle
-    [this.radioRampSlide, this.radioRampFold].forEach(radio => {
-      if (radio) {
-        radio.addEventListener('change', (e) => {
-          if (e.target.checked) {
-            const style = e.target.value;
-            this.updateRampUI(style);
-            store.update({ rampStyle: style });
-          }
-        });
-      }
-    });
-
-    // 10. Ramp Length Slider (Slide-In)
-    if (this.sliderRampLength) {
-      this.sliderRampLength.addEventListener('input', (e) => {
-        const val = Number(e.target.value);
-        if (this.labelRampLength) this.labelRampLength.textContent = `${val.toFixed(1)} ft`;
-        store.update({ rampLengthFt: val });
-      });
-    }
-
-    // 11. Ramp Position Toggle
-    [this.radioRampPosStowed, this.radioRampPosDeployed, this.radioRampPosStanding].forEach(radio => {
-      if (radio) {
-        radio.addEventListener('change', (e) => {
-          if (e.target.checked) {
-            store.update({ rampPosition: e.target.value });
-          }
-        });
-      }
-    });
-
-    // 12. Dump Bed Position Toggle
-    [this.radioDumpPosLowered, this.radioDumpPosRaised].forEach(radio => {
-      if (radio) {
-        radio.addEventListener('change', (e) => {
-          if (e.target.checked) {
-            store.update({ dumpBedPosition: e.target.value });
-            this.showToast(`Dump Bed: ${e.target.value === 'raised' ? 'Raised (42° Tilt)' : 'Lowered (Transport)'}`);
-          }
-        });
-      }
-    });
-
-    // 13. Dump Door Style Toggle
-    [this.radioDumpDoorBarn, this.radioDumpDoorSpreader].forEach(radio => {
-      if (radio) {
-        radio.addEventListener('change', (e) => {
-          if (e.target.checked) {
-            store.update({ dumpDoorStyle: e.target.value });
-          }
-        });
-      }
-    });
-
-    // 14. Cargo Rear Door Style Toggle
-    [this.radioCargoDoorRamp, this.radioCargoDoorBarn].forEach(radio => {
-      if (radio) {
-        radio.addEventListener('change', (e) => {
-          if (e.target.checked) {
-            store.update({ cargoRearDoor: e.target.value });
-          }
-        });
-      }
-    });
-
-    // 15. Cargo Side Door Checkbox
-    if (this.checkCargoSideDoor) {
-      this.checkCargoSideDoor.addEventListener('change', (e) => {
-        store.update({ cargoSideDoor: e.target.checked });
-      });
-    }
-
-    // 16. Custom Decal Text Input
-    if (this.inputDecalText) {
-      this.inputDecalText.addEventListener('input', (e) => {
-        store.update({ decalText: e.target.value });
-      });
-    }
-
-    // 17. Decal Color Swatches
-    this.decalColorSwatches.forEach(swatch => {
-      swatch.addEventListener('click', () => {
-        this.decalColorSwatches.forEach(s => s.classList.remove('active'));
-        swatch.classList.add('active');
-        const color = swatch.getAttribute('data-decal-color');
-        store.update({ decalColor: color });
-      });
-    });
-
-    // 18. Environment Presets (Dark, White, Showroom)
-    this.envPresetBtns.forEach(btn => {
-      btn.addEventListener('click', () => {
-        const mode = btn.getAttribute('data-env');
-        store.update({ environmentMode: mode });
-        this.envPresetBtns.forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        this.showToast(`Studio environment: ${mode.toUpperCase()}`);
-      });
-    });
-
-    // 19. Tow Truck Toggle & Custom 3D Model Loading
-    if (this.btnToggleTruck) {
-      this.btnToggleTruck.addEventListener('click', () => {
-        const current = store.getState().showTowTruck;
-        const next = !current;
-        store.update({ showTowTruck: next });
-        this.btnToggleTruck.classList.toggle('active', next);
-        this.sceneManager.setCameraPreset('side', store.getMetrics(), next);
-        const truckName = (this.sceneManager.towTruck && this.sceneManager.towTruck.isCustom)
-          ? (this.sceneManager.towTruck.customModelName || 'Custom 3D Truck')
-          : '2016 Ford F-250';
-        this.showToast(next ? `Tow Vehicle (${truckName}) Attached` : 'Tow Vehicle Removed');
-      });
-    }
-
-    if (this.inputTruckFile) {
-      this.inputTruckFile.addEventListener('change', (e) => {
-        const file = e.target.files && e.target.files[0];
-        if (!file) return;
-
-        this.showToast(`Loading 3D Model: ${file.name}...`);
-        this.sceneManager.towTruck.loadCustomTruck(
-          file,
-          file.name,
-          (loadedName) => {
-            store.update({ showTowTruck: true });
-            if (this.btnToggleTruck) this.btnToggleTruck.classList.add('active');
-            if (this.truckBtnText) this.truckBtnText.textContent = file.name.length > 12 ? `${file.name.substring(0, 10)}...` : file.name;
-            if (this.btnResetTruck) this.btnResetTruck.style.display = 'inline-flex';
-            this.sceneManager.setCameraPreset('side', store.getMetrics(), true);
-            this.showToast(`Custom 3D Truck Loaded: ${file.name}`);
-          },
-          (err) => {
-            this.showToast(`Failed to parse 3D asset: ${err.message || 'Error'}`);
-          }
-        );
-      });
-    }
-
-    if (this.btnResetTruck) {
-      this.btnResetTruck.addEventListener('click', () => {
-        this.sceneManager.towTruck.resetToProcedural();
-        if (this.truckBtnText) this.truckBtnText.textContent = 'F-250 Truck';
-        this.btnResetTruck.style.display = 'none';
-        this.showToast('Reset to procedural 2016 Ford F-250');
-      });
-    }
-
-    // 20. Camera Presets
-    this.cameraPresetBtns.forEach(btn => {
-      btn.addEventListener('click', () => {
-        this.cameraPresetBtns.forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        const preset = btn.getAttribute('data-preset');
-        this.sceneManager.setCameraPreset(preset, store.getMetrics(), !!store.getState().showTowTruck);
-      });
-    });
-
-    // 21. Dimension Overlay Toggle
-    if (this.btnToggleDimensions) {
-      this.btnToggleDimensions.addEventListener('click', () => {
-        const cur = store.getState().showDimensions;
-        store.update({ showDimensions: !cur });
-        this.btnToggleDimensions.classList.toggle('active', !cur);
-      });
-    }
-
-    // 22. Export GLB Button
-    if (this.btnExport) {
-      this.btnExport.addEventListener('click', async () => {
-        const originalText = this.btnExport.innerHTML;
-        try {
-          this.btnExport.disabled = true;
-          this.btnExport.innerHTML = `<span>Exporting 3D Model...</span>`;
-          const activeTrailer = this.sceneManager.activeTrailer;
-          if (!activeTrailer) throw new Error('Trailer model is still initializing.');
-
-          const result = await gltfExporterService.exportGLB(
-            activeTrailer.rootGroup,
-            store.getState(),
-            store.getMetrics()
-          );
-
-          this.showToast(`Exported ${result.fileName} (${result.fileSizeKb} KB)`);
-        } catch (err) {
-          console.error('Export error:', err);
-          this.showToast(`Export failed: ${err.message}`, 4000);
-        } finally {
-          this.btnExport.disabled = false;
-          this.btnExport.innerHTML = originalText;
-        }
-      });
-    }
+  download(blob, filename) {
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url; anchor.download = filename;
+    document.body.appendChild(anchor); anchor.click(); anchor.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1500);
   }
-
-  updateRampUI(rampStyle) {
-    if (rampStyle === 'slide_in') {
-      if (this.groupRampLength) this.groupRampLength.style.display = 'flex';
-      if (this.optionRampStanding) this.optionRampStanding.style.display = 'none';
-      if (this.radioRampPosStanding && this.radioRampPosStanding.checked) {
-        if (this.radioRampPosDeployed) this.radioRampPosDeployed.checked = true;
-        store.update({ rampPosition: 'deployed' });
-      }
-    } else {
-      if (this.groupRampLength) this.groupRampLength.style.display = 'none';
-      if (this.optionRampStanding) this.optionRampStanding.style.display = 'block';
-    }
-  }
-
-  showToast(message, duration = 3000) {
-    if (!this.toastContainer) return;
+  showToast(message) {
     const toast = document.createElement('div');
-    toast.className = 'toast';
-    toast.textContent = message;
-    this.toastContainer.appendChild(toast);
-
-    setTimeout(() => {
-      toast.style.opacity = '0';
-      toast.style.transform = 'translateY(-10px)';
-      toast.style.transition = 'all 0.3s ease';
-      setTimeout(() => toast.remove(), 300);
-    }, duration);
+    toast.className = 'toast'; toast.textContent = message;
+    const container = $('toast-container');
+    while (container.children.length > 2) container.firstElementChild.remove();
+    container.appendChild(toast);
+    setTimeout(() => toast.remove(), 4500);
   }
+  dispose() { this.abort.abort(); clearTimeout(this.inputTimer); this.unsubscribe(); }
 }
