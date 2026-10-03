@@ -5,7 +5,6 @@
  * Aligns automatically with Bumper Pull receiver or Gooseneck ball to verify real-world clearances.
  */
 import * as THREE from 'three';
-import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { FORD_F250_65_SPECS } from '../core/PhysicsMetrics.js';
 
 export class TowTruck {
@@ -199,6 +198,7 @@ export class TowTruck {
   }
 
   async loadCustomTruck(source, name = 'Custom truck') {
+    const { GLTFLoader } = await import('three/examples/jsm/loaders/GLTFLoader.js');
     const request = this.loadRequest = (this.loadRequest || 0) + 1;
     const loader = new GLTFLoader();
     let gltf;

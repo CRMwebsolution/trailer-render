@@ -1,6 +1,5 @@
 import { store } from '../core/StateStore.js';
 import { configurationURL, normalizeConfig, DEFAULT_CONFIG } from '../core/config.js';
-import { gltfExporterService } from '../export/GLTFExporterService.js';
 import { designLibrary, STARTER_PRESETS } from '../core/DesignLibrary.js';
 import { computeCargoFit, LOAD_PRESETS } from '../core/cargoFit.js';
 import { formatDistance } from '../core/modelGeometry.js';
@@ -56,6 +55,8 @@ export class UIController {
   update(values) { this.flush(); store.update(values); }
 
   bindEvents() {
+    this.listen($('webgl-canvas'), 'quality-change', event => { $('quality-status').textContent = event.detail; });
+    $('quality-status').textContent = this.sceneManager.qualityLabel();
     this.listen($('select-load-preset'), 'change', event => {
       const name = event.target.value; this.update({ loadPreset: name, ...(LOAD_PRESETS[name] || {}) });
     });
@@ -194,6 +195,7 @@ export class UIController {
       button.setAttribute('aria-busy', 'true');
       try {
         this.sceneManager.finishMotion();
+        const { gltfExporterService } = await import('../export/GLTFExporterService.js');
         const result = await gltfExporterService.exportGLB(this.sceneManager.activeTrailer.rootGroup, store.getState(), store.getMetrics());
         this.showToast(`Saved ${result.fileName}`);
       } finally { button.disabled = false; button.removeAttribute('aria-busy'); }

@@ -9,6 +9,7 @@ import { decalFactory } from './DecalFactory.js';
 import { measurementValues, formatDistance } from '../core/modelGeometry.js';
 import { PartInspector } from './PartInspector.js';
 import { CargoEnvelope } from './CargoEnvelope.js';
+import { AdaptiveQuality, initialQualityTier, qualitySettings } from '../core/AdaptiveQuality.js';
 
 const GEOMETRY_KEYS = ['trailerType', 'bedLengthFt', 'trailerWidthIn', 'fenderStyle',
   'payloadClass', 'hitchStyle', 'deckMaterial', 'finishColor', 'finishSheen', 'rampStyle', 'rampLengthFt',
@@ -48,6 +49,7 @@ export class SceneManager {
     this.setupEnvironment();
     this.setupGround();
     this.setupShowroom();
+    this.qualityController = new AdaptiveQuality();
     this.applyQuality('auto');
     this.resizeObserver = new ResizeObserver(() => this.handleResize());
     this.resizeObserver.observe(this.container);
@@ -231,13 +233,29 @@ export class SceneManager {
     this.markShadowsDirty();
   }
 
-  applyQuality(quality) {
+  applyQuality(quality, preserveTier = false) {
+    this.qualityMode = quality;
+    if (!preserveTier) this.qualityController.reset(initialQualityTier({ deviceMemory: navigator.deviceMemory, hardwareConcurrency: navigator.hardwareConcurrency, saveData: navigator.connection?.saveData }));
     const smallScreen = window.matchMedia('(max-width: 820px)').matches;
-    const low = quality === 'low';
-    const pixelCap = low ? 1 : quality === 'high' ? 2 : smallScreen ? 1.25 : 1.75;
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, pixelCap));
-    this.renderer.shadowMap.enabled = !low;
+    const settings = qualitySettings(quality, this.qualityController.tier, smallScreen);
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, settings.pixelCap));
+    this.renderer.shadowMap.enabled = settings.shadowSize > 0;
+    for (const light of [this.dirLight, this.showroomSpot]) {
+      const size = settings.shadowSize || 1024;
+      if (light.shadow.mapSize.width !== size) { light.shadow.map?.dispose(); light.shadow.map = null; light.shadow.mapSize.set(size, size); }
+    }
+    this.textureAnisotropy = Math.min(settings.anisotropy, this.renderer.capabilities.getMaxAnisotropy());
+    this.refreshTextureQuality();
+    this.canvas.dispatchEvent(new CustomEvent('quality-change', { detail: this.qualityLabel() }));
     this.markShadowsDirty();
+  }
+  qualityLabel() {
+    if (this.qualityMode === 'high') return 'High detail · full shadows';
+    if (this.qualityMode === 'low') return 'Battery saver · shadows off';
+    return `Automatic · ${{ balanced: 'balanced detail', economy: 'lighter shadows', minimal: 'shadows off for smoother motion' }[this.qualityController.tier]}`;
+  }
+  refreshTextureQuality() {
+    for (const texture of this.materials.textures) if (texture.anisotropy !== this.textureAnisotropy) { texture.anisotropy = this.textureAnisotropy; texture.needsUpdate = true; }
   }
 
   markShadowsDirty() { this.renderer.shadowMap.needsUpdate = true; }
@@ -263,6 +281,7 @@ export class SceneManager {
         this.currentType = state.trailerType;
       }
       this.activeTrailer.build(state, metrics);
+      this.refreshTextureQuality();
       this.markShadowsDirty();
     } else if (poseOnly) {
       this.activeTrailer.currentConfig = state;
@@ -344,6 +363,7 @@ export class SceneManager {
     const { width, height } = this.container.getBoundingClientRect();
     if (!width || !height) return;
     this.width = width; this.height = height;
+    this.applyQuality(this.qualityMode, true);
     this.camera.aspect = width / height; this.camera.updateProjectionMatrix();
     this.renderer.setSize(width, height, false);
     if (fit && this.activeTrailer) this.cameraController.frame(this.getBounds(), this.state.cameraPreset, true, true);
@@ -356,7 +376,8 @@ export class SceneManager {
   render(time) {
     this.frame = 0;
     if (!this.running || document.hidden || this.contextLost) return;
-    const delta = this.lastFrameTime ? Math.min(.05, (time - this.lastFrameTime) / 1000) : 1 / 60;
+    const frameMs = this.lastFrameTime ? time - this.lastFrameTime : 0;
+    const delta = frameMs ? Math.min(.05, frameMs / 1000) : 1 / 60;
     this.lastFrameTime = time;
     if (this.motion) {
       this.motion.elapsed += delta;
@@ -370,6 +391,9 @@ export class SceneManager {
     this.partInspector.update();
     this.cargoEnvelope.updatePose();
     this.renderer.render(this.scene, this.camera);
+    if (this.state?.renderQuality === 'auto' && frameMs && this.qualityController.sample(frameMs, moving || !!this.motion)) {
+      this.applyQuality('auto', true); this.handleResize(false);
+    }
     if (moving || this.motion) this.requestRender();
     else this.lastFrameTime = 0;
   }

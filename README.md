@@ -16,7 +16,7 @@ An interactive trailer design studio built with Three.js, vanilla JavaScript and
 - Desktop layout with separate controls, preview and specifications; phone layout with a visible 3D preview and Customize/Specifications panels.
 - Save/load configuration JSON, shareable design addresses, PNG snapshots and binary GLB model export.
 - Local GLB and self-contained GLTF truck imports with scale, direction and longitudinal alignment controls.
-- Automatic/high/battery-saver rendering quality. The renderer stops drawing when the view is idle and pauses in hidden tabs.
+- Automatic quality adapts to device hints and sustained slow motion; high detail and battery saver retain the selected level. Import/export modules load on demand. The renderer stops drawing when the view is idle and pauses in hidden tabs.
 - Keyboard focus, labeled controls, pressed states and reduced-motion support.
 
 ## Run locally

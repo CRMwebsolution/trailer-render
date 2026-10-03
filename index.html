@@ -385,7 +385,8 @@
           </div>
           <label class="control-label" for="select-render-quality">Rendering quality</label>
           <select id="select-render-quality" class="config-select"><option value="auto">Automatic</option><option value="high">High detail</option><option value="low">Battery saver</option></select>
-          <p class="control-help">Battery saver reduces shadows and pixel density.</p>
+          <p id="quality-status" class="control-help" role="status">Automatic · balanced detail</p>
+          <p class="control-help">Automatic quality reduces detail if motion stays slow. High detail and Battery saver keep your selected level. The view stops rendering while idle.</p>
         </details>
         <!-- Model Export -->
         <div class="section-group">

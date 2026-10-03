@@ -6,3 +6,4 @@ import './designLibrary.test.js';
 import './measurements.test.js';
 import './motion.test.js';
 import './cargoFit.test.js';
+import './quality.test.js';
