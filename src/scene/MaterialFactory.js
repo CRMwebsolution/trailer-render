@@ -226,7 +226,7 @@ export class MaterialFactory {
    * Retrieves or builds requested PBR material.
    */
   getMaterial(name, options = {}) {
-    if (name === 'frame_steel') options = { ...options, sheen: this.finishSheen || 'satin' };
+    if (name === 'frame_steel') options = { ...options, sheen: options.sheen || this.finishSheen || 'satin' };
     const key = `${name}_${JSON.stringify(options)}`;
     if (this.cache.has(key)) {
       return this.cache.get(key);

@@ -46,7 +46,7 @@ The weight class describes the chosen modeled rating, not a certification of the
 
 ## Truck models
 
-The built-in truck is a simplified visual reference. Import a `.glb` with embedded textures through **Tow vehicle & display**. A `.gltf` is supported when its buffers and images are embedded; multi-file GLTF packages should be exported as GLB first.
+The built-in pickup is an adjustable generic visual reference. Wheelbase, body width and rear-axle-to-bumper-hitch offset are assumptions; they are not verified specifications for a particular vehicle. Truck import scale, offset and direction are saved in the design and support undo/redo. Import a `.glb` with embedded textures through **Tow vehicle & display**. A `.gltf` is supported when its buffers and images are embedded; multi-file GLTF packages should be exported as GLB first.
 
 The source GMC model is in `assets/1999 GMC Sierra 1500 truck/truck.blend`. It is not a browser-ready model. Open it in Blender, verify/relink its textures, and export as **glTF Binary (.glb)**. The export can then be loaded through the viewer. The application no longer probes a missing truck URL during startup.
 

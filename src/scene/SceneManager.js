@@ -303,22 +303,25 @@ export class SceneManager {
     this.activeTrailer.rootGroup.traverse(object => { if (object.userData.cutaway) object.visible = !state.cargoCutaway; });
     if (changed('cargoCutaway')) this.markShadowsDirty();
     if (geometryChanged || poseOnly || changed('jackExtensionPct') || DIMENSION_KEYS.some(changed)) this.refreshDimensions();
+    const truckChanged = ['truckWheelbaseIn', 'truckWidthIn', 'truckRearHitchOffsetIn'].some(changed);
+    if (truckChanged) { this.towTruck.updateDimensions(state); this.refreshTextureQuality(); }
+    if (truckChanged || changed('showTowTruck') || ['customTruckScalePct', 'customTruckOffsetM', 'customTruckFlipped'].some(changed)) this.applyCustomTruckSettings();
     this.towTruck.updatePosition(metrics, state.hitchStyle, state.showTowTruck);
-    if (geometryChanged && !poseOnly || changed('showTowTruck') || changed('cameraPreset') || changed('loadPreset')) {
+    if (geometryChanged && !poseOnly || changed('showTowTruck') || changed('cameraPreset') || changed('loadPreset') || state.showTowTruck && truckChanged) {
       this.setCameraPreset(state.cameraPreset, undefined, false, !previous);
     }
     const center = this.getBounds().getCenter(new THREE.Vector3());
     this.dirLight.target.position.copy(center);
     this.dirLight.position.copy(center).add(new THREE.Vector3(-5, 12, 8));
     this.dirLight.target.updateMatrixWorld();
-    if (geometryChanged || changed('showTowTruck')) this.markShadowsDirty();
+    if (geometryChanged || changed('showTowTruck') || truckChanged || ['customTruckScalePct', 'customTruckOffsetM', 'customTruckFlipped'].some(changed)) this.markShadowsDirty();
     this.requestRender();
   }
 
   getBounds(preset) {
     this.scene.updateMatrixWorld(true);
     let bounds = new THREE.Box3().setFromObject(this.activeTrailer.rootGroup);
-    if (this.state.showTowTruck) bounds.expandByObject(this.towTruck.group);
+    if (this.state.showTowTruck) bounds.union(this.towTruck.getBounds());
     if (this.cargoEnvelope.group.visible) bounds.expandByObject(this.cargoEnvelope.group);
     if (preset === 'hitch') {
       bounds = new THREE.Box3().setFromObject(this.activeTrailer.hitchGroup);
@@ -352,7 +355,12 @@ export class SceneManager {
     if (!this.activeTrailer) return;
     this.cameraController.frame(this.getBounds(), this.state.cameraPreset, false, true);
   }
+  applyCustomTruckSettings() {
+    if (!this.state || !this.towTruck.isCustom) return;
+    this.towTruck.adjustCustomModel({ scale: this.state.customTruckScalePct / 100, offset: this.state.customTruckOffsetM, flip: this.state.customTruckFlipped });
+  }
   refreshTruck(fit = true) {
+    this.applyCustomTruckSettings();
     this.towTruck.updatePosition(this.metrics, this.state.hitchStyle, this.state.showTowTruck);
     this.markShadowsDirty();
     if (fit) this.fitView();
@@ -441,7 +449,7 @@ export class SceneManager {
       this.camera.aspect = width / height; this.camera.updateProjectionMatrix();
       controls.enabled = false; controls.enableDamping = false;
       const bounds = new THREE.Box3().setFromObject(this.activeTrailer.rootGroup);
-      if (this.towTruck.group.visible) bounds.expandByObject(this.towTruck.group);
+      if (this.towTruck.group.visible) bounds.union(this.towTruck.getBounds());
       if (this.cargoEnvelope.group.visible) bounds.expandByObject(this.cargoEnvelope.group);
       if (this.dimensionOverlay.group.visible) bounds.expandByScalar(.6);
       controller.frame(bounds, preset, true);

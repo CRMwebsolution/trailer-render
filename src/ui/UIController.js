@@ -13,6 +13,8 @@ const FIELDS = {
   'slider-ramp-length': 'rampLengthFt', 'check-cargo-side-door': 'cargoSideDoor',
   'input-decal-text': 'decalText', 'select-render-quality': 'renderQuality',
   'select-finish-sheen': 'finishSheen',
+  'input-truck-wheelbase': 'truckWheelbaseIn', 'input-truck-width': 'truckWidthIn', 'input-truck-rear-offset': 'truckRearHitchOffsetIn',
+  'truck-scale': 'customTruckScalePct', 'truck-offset': 'customTruckOffsetM',
   'select-measurement-mode': 'measurementMode', 'select-measurement-units': 'measurementUnits'
   , 'slider-dump-angle': 'dumpAngleDeg', 'slider-cargo-door': 'cargoDoorOpenPct', 'slider-ramp-deployment': 'rampDeploymentPct', 'slider-jack-extension': 'jackExtensionPct',
   'input-load-length': 'loadLengthFt', 'input-load-width': 'loadWidthIn', 'input-load-height': 'loadHeightIn', 'input-load-weight': 'loadWeightLbs',
@@ -197,20 +199,7 @@ export class UIController {
       this.sceneManager.towTruck.resetToProcedural();
       this.refreshTruck();
     });
-    for (const id of ['truck-scale', 'truck-offset']) {
-      this.listen($(id), 'input', () => {
-        this.sceneManager.towTruck.adjustCustomModel({
-          scale: Number($('truck-scale').value) / 100, offset: Number($('truck-offset').value)
-        });
-        $('val-truck-scale').textContent = `${$('truck-scale').value}%`;
-        $('val-truck-offset').textContent = `${Number($('truck-offset').value).toFixed(2)} m`;
-        this.sceneManager.refreshTruck(false);
-      });
-    }
-    this.click('btn-flip-truck', () => {
-      this.sceneManager.towTruck.adjustCustomModel({ flip: !this.sceneManager.towTruck.customFlip });
-      this.sceneManager.refreshTruck();
-    });
+    this.click('btn-flip-truck', () => this.update({ customTruckFlipped: !store.getState().customTruckFlipped }));
     this.click('btn-export-glb', async () => {
       const button = $('btn-export-glb');
       button.disabled = true;
@@ -282,6 +271,7 @@ export class UIController {
     $('val-dump-angle').textContent = `${state.dumpAngleDeg}°`;
     $('val-cargo-door').textContent = `${state.cargoDoorOpenPct}%`;
     $('val-ramp-deployment').textContent = `${state.rampDeploymentPct}%`;
+    $('val-truck-scale').textContent = `${state.customTruckScalePct}%`; $('val-truck-offset').textContent = `${state.customTruckOffsetM.toFixed(2)} m`;
     $('val-jack-extension').textContent = `${state.jackExtensionPct}%`;
     $('select-load-preset').value = state.loadPreset;
     $('load-fields').hidden = state.loadPreset === 'none';
@@ -340,8 +330,8 @@ export class UIController {
     $('btn-reset-truck').hidden = !custom;
     $('custom-truck-controls').hidden = !custom;
     $('truck-btn-text').textContent = custom ? 'Custom truck' : 'Tow vehicle';
-    $('truck-scale').value = '100'; $('truck-offset').value = '0';
-    $('val-truck-scale').textContent = '100%'; $('val-truck-offset').textContent = '0.00 m';
+    $('truck-scale').value = store.getState().customTruckScalePct; $('truck-offset').value = store.getState().customTruckOffsetM;
+    $('val-truck-scale').textContent = `${store.getState().customTruckScalePct}%`; $('val-truck-offset').textContent = `${store.getState().customTruckOffsetM.toFixed(2)} m`;
     this.sceneManager.refreshTruck();
   }
   pinComparison() {

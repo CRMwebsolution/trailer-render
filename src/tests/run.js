@@ -9,3 +9,4 @@ import './cargoFit.test.js';
 import './quality.test.js';
 import './comparison.test.js';
 import './loadBalance.test.js';
+import './truck.test.js';

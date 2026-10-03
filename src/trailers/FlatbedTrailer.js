@@ -277,7 +277,7 @@ export class FlatbedTrailer extends BaseTrailer {
       // Ball socket casting
       const socketGeo = new THREE.CylinderGeometry(0.06, 0.07, 0.10, 16);
       const socket = new THREE.Mesh(socketGeo, hardwareMat);
-      socket.position.set(-tongueReachM - 0.04, couplerElevationM + 0.05, 0);
+      socket.position.set(-tongueReachM, couplerElevationM + 0.05, 0);
       socket.castShadow = true;
       this.hitchGroup.add(socket);
 

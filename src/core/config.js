@@ -11,7 +11,9 @@ export const DEFAULT_CONFIG = Object.freeze({
   cameraPreset: 'isometric', renderQuality: 'auto', measurementMode: 'deck', measurementUnits: 'imperial',
   dumpAngleDeg: 0, cargoDoorOpenPct: 0, rampDeploymentPct: 100, jackExtensionPct: 100,
   inspectMode: false, loadPreset: 'none', loadLengthFt: 15, loadWidthIn: 72, loadHeightIn: 60,
-  loadCenterPct: 50, loadLateralIn: 0, loadYawDeg: 0, cargoCutaway: false, loadWeightLbs: 3500
+  loadCenterPct: 50, loadLateralIn: 0, loadYawDeg: 0, cargoCutaway: false, loadWeightLbs: 3500,
+  truckWheelbaseIn: 156, truckWidthIn: 80, truckRearHitchOffsetIn: 46.5,
+  customTruckScalePct: 100, customTruckOffsetM: 0, customTruckFlipped: false
 });
 
 const ENUMS = {
@@ -56,6 +58,11 @@ export function normalizeConfig(input = {}, changes = {}) {
   state.loadLateralIn = numberInRange(input.loadLateralIn, 0, -72, 72);
   state.loadYawDeg = numberInRange(input.loadYawDeg, 0, -90, 90);
   state.loadWeightLbs = numberInRange(input.loadWeightLbs, 3500, 0, 50000, 25);
+  state.truckWheelbaseIn = numberInRange(input.truckWheelbaseIn, 156, 110, 220, .5);
+  state.truckWidthIn = numberInRange(input.truckWidthIn, 80, 60, 110, .5);
+  state.truckRearHitchOffsetIn = numberInRange(input.truckRearHitchOffsetIn, 46.5, 20, 80, .5);
+  state.customTruckScalePct = numberInRange(input.customTruckScalePct, 100, 50, 150);
+  state.customTruckOffsetM = numberInRange(input.customTruckOffsetM, 0, -2, 2, .05);
   if ((!Object.hasOwn(input, 'dumpAngleDeg') || Object.hasOwn(changes, 'dumpBedPosition')) && !Object.hasOwn(changes, 'dumpAngleDeg')) state.dumpAngleDeg = state.dumpBedPosition === 'raised' ? 42 : 0;
   if ((!Object.hasOwn(input, 'cargoDoorOpenPct') || Object.hasOwn(changes, 'cargoDoorPosition')) && !Object.hasOwn(changes, 'cargoDoorOpenPct')) state.cargoDoorOpenPct = state.cargoDoorPosition === 'open' ? 100 : 0;
   if ((!Object.hasOwn(input, 'rampDeploymentPct') || Object.hasOwn(changes, 'rampPosition')) && !Object.hasOwn(changes, 'rampDeploymentPct')) state.rampDeploymentPct = state.rampPosition === 'stowed' ? 0 : state.rampPosition === 'standing' ? 50 : 100;
@@ -65,7 +72,7 @@ export function normalizeConfig(input = {}, changes = {}) {
   if ([76, 83, 96, 102].includes(Number(input.trailerWidthIn))) {
     state.trailerWidthIn = Number(input.trailerWidthIn);
   }
-  for (const key of ['showTowTruck', 'showDimensions', 'cargoSideDoor', 'inspectMode', 'cargoCutaway']) {
+  for (const key of ['showTowTruck', 'showDimensions', 'cargoSideDoor', 'inspectMode', 'cargoCutaway', 'customTruckFlipped']) {
     if (typeof input[key] === 'boolean') state[key] = input[key];
   }
   for (const key of ['finishColor', 'decalColor']) {

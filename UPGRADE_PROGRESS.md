@@ -13,7 +13,8 @@ All work stays on `codex/configurator-improvements`. Each finished upgrade is te
 - [x] Pinned design comparisons, highlighted changes, persisted references and printable comparison exports.
 - [x] Four-view printable spec sheets with high-resolution embedded images, optional overlays/vehicle and editable design copies.
 - [x] Level-trailer point-load balance, assumed cargo center, and class-rating/reaction warnings.
-- [ ] Adjustable built-in truck and turning/backing demonstration.
+- [x] Adjustable reference pickup, improved vehicle detail, saved/undoable import alignment and consistent bumper hitch geometry.
+- [ ] Turning/backing demonstration.
 
 Physical dimensions, weights, fit checks, and motion remain modeled or explicitly assumed until real measurements and manufacturer data are supplied. Reference designs are examples, not verified products.
 
