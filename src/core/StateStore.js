@@ -34,7 +34,7 @@ export class StateStore {
     this.notify(previous);
   }
 
-  replace(state) { this.update(normalizeConfig(state)); }
+  replace(state, options) { this.update(normalizeConfig(state), options); }
 
   undo() { return this.travel(this.past, this.future); }
   redo() { return this.travel(this.future, this.past); }

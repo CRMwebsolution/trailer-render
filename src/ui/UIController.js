@@ -1,6 +1,7 @@
 import { store } from '../core/StateStore.js';
 import { configurationURL, normalizeConfig, DEFAULT_CONFIG } from '../core/config.js';
 import { gltfExporterService } from '../export/GLTFExporterService.js';
+import { designLibrary, STARTER_PRESETS } from '../core/DesignLibrary.js';
 
 const FIELDS = {
   'select-trailer-type': 'trailerType', 'slider-bed-length': 'bedLengthFt',
@@ -21,6 +22,7 @@ export class UIController {
     this.pending = {};
     this.abort = new AbortController();
     this.bindEvents();
+    this.renderDesignLibrary();
     this.unsubscribe = store.subscribe(state => this.syncFromState(state));
   }
   listen(element, event, callback) {
@@ -47,6 +49,28 @@ export class UIController {
   update(values) { this.flush(); store.update(values); }
 
   bindEvents() {
+    for (const preset of STARTER_PRESETS) {
+      const option = document.createElement('option'); option.value = preset.id; option.textContent = preset.name;
+      $('select-starter-preset').appendChild(option);
+    }
+    this.listen($('select-starter-preset'), 'change', event => {
+      const preset = STARTER_PRESETS.find(item => item.id === event.target.value);
+      if (preset) { this.flush(); store.replace(normalizeConfig(preset.config)); this.showToast(`${preset.name} loaded. Dimensions are modeled examples.`); }
+      event.target.value = '';
+    });
+    this.click('btn-save-local', () => { $('design-name').value = `${store.getState().bedLengthFt} ft ${store.getState().trailerType}`; $('design-name-dialog').showModal(); $('design-name').focus(); });
+    this.listen($('design-name-form'), 'submit', async event => {
+      event.preventDefault(); this.flush();
+      const button = $('btn-confirm-save-local'); button.disabled = true;
+      try {
+        let thumbnail = '';
+        try { thumbnail = await this.sceneManager.createThumbnail(); } catch { /* A design is still useful without a thumbnail. */ }
+        designLibrary.save($('design-name').value, store.getState(), thumbnail);
+        $('design-name-dialog').close(); this.renderDesignLibrary(); this.showToast('Named design saved on this browser.');
+      } catch (error) { this.showToast(error.message); }
+      finally { button.disabled = false; }
+    });
+    this.click('btn-cancel-save-local', () => $('design-name-dialog').close());
     for (const [id, key] of Object.entries(FIELDS)) {
       const element = $(id);
       const isInput = element.type === 'range' || element.type === 'text';
@@ -182,6 +206,8 @@ export class UIController {
   }
 
   syncFromState(state) {
+    try { designLibrary.saveRecovery(state); $('autosave-status').textContent = 'Last design saved on this browser'; }
+    catch { $('autosave-status').textContent = 'Use Save design to keep a JSON copy'; }
     const history = store.getHistory();
     $('btn-undo').disabled = !history.canUndo;
     $('btn-redo').disabled = !history.canRedo;
@@ -233,6 +259,24 @@ export class UIController {
     $('truck-scale').value = '100'; $('truck-offset').value = '0';
     $('val-truck-scale').textContent = '100%'; $('val-truck-offset').textContent = '0.00 m';
     this.sceneManager.refreshTruck();
+  }
+  renderDesignLibrary() {
+    const root = $('saved-design-list'); root.replaceChildren();
+    const designs = designLibrary.list();
+    $('saved-design-empty').hidden = designs.length > 0;
+    for (const design of designs) {
+      const row = document.createElement('div'); row.className = 'saved-design';
+      const load = document.createElement('button'); load.className = 'saved-design-load';
+      if (design.thumbnail) { const img = document.createElement('img'); img.src = design.thumbnail; img.alt = ''; img.width = 90; img.height = 55; load.appendChild(img); }
+      const label = document.createElement('span'); label.textContent = design.name; load.appendChild(label);
+      this.listen(load, 'click', () => { this.flush(); store.replace(design.config); this.showToast(`${design.name} restored.`); });
+      const remove = document.createElement('button'); remove.className = 'text-btn'; remove.textContent = 'Remove'; remove.setAttribute('aria-label', `Remove saved design ${design.name}`);
+      this.listen(remove, 'click', () => {
+        try { designLibrary.remove(design.id); this.renderDesignLibrary(); this.showToast('Saved copy removed. The current design stays in the viewer.'); }
+        catch (error) { this.showToast(error.message); }
+      });
+      row.append(load, remove); root.appendChild(row);
+    }
   }
   download(blob, filename) {
     const url = URL.createObjectURL(blob);

@@ -1,5 +1,6 @@
 import { store } from './core/StateStore.js';
 import { configurationFromURL } from './core/config.js';
+import { designLibrary } from './core/DesignLibrary.js';
 import { SceneManager } from './scene/SceneManager.js';
 import { UIController } from './ui/UIController.js';
 import { MetricsDashboard } from './ui/MetricsDashboard.js';
@@ -7,7 +8,8 @@ import { MetricsDashboard } from './ui/MetricsDashboard.js';
 let sharedDesignError;
 try {
   const shared = configurationFromURL(window.location.href);
-  if (shared) store.replace(shared);
+  const initial = shared || designLibrary.recover();
+  if (initial) store.replace(initial, { recordHistory: false });
 } catch { sharedDesignError = 'The shared design could not be read. Showing the default trailer.'; }
 
 const canvas = document.getElementById('webgl-canvas');

@@ -68,6 +68,15 @@
           <button id="btn-redo" class="secondary-btn" title="Redo (Ctrl/Cmd+Shift+Z)" disabled>↷ Redo</button>
           <button id="btn-reset-design" class="text-btn">Reset</button>
         </div>
+        <details class="section-group design-library">
+          <summary>Presets & saved designs</summary>
+          <select id="select-starter-preset" class="config-select" aria-label="Starter trailer preset"><option value="">Choose a starter design…</option></select>
+          <p class="control-help">Example configurations. No manufacturer dimensions or ratings are verified.</p>
+          <button id="btn-save-local" class="secondary-btn">Save a named design</button>
+          <div id="saved-design-list"></div>
+          <p id="saved-design-empty" class="control-help">Your saved designs will appear here.</p>
+          <p id="autosave-status" class="control-help" role="status"></p>
+        </details>
         <!-- 1. Trailer Platform Type -->
         <div class="section-group">
           <div class="section-title">
@@ -382,6 +391,12 @@
     </div>
 
     <!-- Application Bootstrap -->
+    <dialog id="design-name-dialog" aria-labelledby="design-name-heading">
+      <form id="design-name-form"><h2 id="design-name-heading">Name your design</h2><p>Stored on this browser. Save a JSON copy to keep it elsewhere.</p>
+        <label for="design-name">Design name</label><input id="design-name" type="text" maxlength="40" required />
+        <div class="dialog-actions"><button id="btn-cancel-save-local" type="button" class="text-btn">Cancel</button><button id="btn-confirm-save-local" class="secondary-btn" type="submit">Save design</button></div>
+      </form>
+    </dialog>
     <script type="module" src="/src/main.js"></script>
   </body>
 </html>

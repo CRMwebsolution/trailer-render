@@ -353,6 +353,14 @@ export class SceneManager {
     this.renderer.render(this.scene, this.camera);
     return new Promise((resolve, reject) => this.canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error('The image could not be saved.')), 'image/png'));
   }
+  async createThumbnail() {
+    const image = await createImageBitmap(await this.createSnapshot());
+    const canvas = document.createElement('canvas'); canvas.width = 180; canvas.height = 110;
+    const context = canvas.getContext('2d'); context.fillStyle = '#e4e7eb'; context.fillRect(0, 0, 180, 110);
+    const ratio = Math.min(180 / image.width, 110 / image.height);
+    context.drawImage(image, (180 - image.width * ratio) / 2, (110 - image.height * ratio) / 2, image.width * ratio, image.height * ratio);
+    image.close(); return canvas.toDataURL('image/jpeg', .7);
+  }
 
   dispose() {
     this.running = false; cancelAnimationFrame(this.frame);

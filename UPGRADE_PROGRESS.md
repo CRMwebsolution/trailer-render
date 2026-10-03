@@ -3,7 +3,7 @@
 All work stays on `codex/configurator-improvements`. Each finished upgrade is tested and published before starting the next.
 
 - [x] Undo, redo, grouped slider/text edits, and an undoable reset.
-- [ ] Named starter presets, local saved designs, thumbnails, and recovery of the last design.
+- [x] Named starter presets, local saved designs, thumbnails, and recovery of the last design.
 - [ ] Selectable measurements and unit conversion.
 - [ ] Continuous moving-part controls.
 - [ ] Part selection and explanations.

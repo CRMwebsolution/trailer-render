@@ -16,6 +16,13 @@ button:disabled { cursor: wait; opacity: .5; }
 button:disabled { cursor: not-allowed; }
 .history-toolbar { display: flex; align-items: center; gap: 8px; }
 .history-toolbar .secondary-btn { flex: 1; padding: 8px; font-size: 12px; }
+.design-library > :not(summary) { margin-top: 10px; }
+.saved-design { display: flex; align-items: center; gap: 4px; padding: 7px 0; border-bottom: 1px solid #344152; }
+.saved-design-load { flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; color: #e9eff5; border: 0; background: transparent; text-align: left; font-size: 12px; }
+.saved-design-load span { overflow-wrap: anywhere; }
+.saved-design-load img { width: 70px; height: 44px; object-fit: contain; border-radius: 5px; }
+.saved-design .text-btn { padding: 7px 4px; font-size: 10px; }
+.dialog-actions { display: flex; justify-content: flex-end; gap: 12px; }
 [hidden] { display: none !important; }
 :focus-visible { outline: 2px solid #83d9ff; outline-offset: 3px; }
 #app {
