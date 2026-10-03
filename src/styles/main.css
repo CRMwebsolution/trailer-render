@@ -133,3 +133,9 @@ input[type='range'].config-slider { background: transparent; height: 32px; }
 .part-inspector { border: 1px solid #7e6233; background: #2a251e; padding: 14px; border-radius: 10px; display: grid; gap: 10px; }
 .part-inspector h2 { font-size: 15px; margin: 0; }
 .inspect-mode { cursor: crosshair; }
+.number-grid { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 8px; margin: 12px 0; }
+.number-grid label { color: #94a3b8; font-size: .68rem; }
+.number-grid input { width: 100%; min-width: 0; margin-top: 5px; padding: 7px; border: 1px solid #3f4956; border-radius: 6px; background: #111820; color: #e2e8f0; }
+.load-settings .control-label { margin-top: 12px; }
+.fit-status { font-size: .75rem; color: #fb7185; line-height: 1.5; }
+.fit-status[data-fits="true"] { color: #34d399; }

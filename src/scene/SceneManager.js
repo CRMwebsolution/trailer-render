@@ -8,6 +8,7 @@ import { trailerFactory } from '../trailers/TrailerFactory.js';
 import { decalFactory } from './DecalFactory.js';
 import { measurementValues, formatDistance } from '../core/modelGeometry.js';
 import { PartInspector } from './PartInspector.js';
+import { CargoEnvelope } from './CargoEnvelope.js';
 
 const GEOMETRY_KEYS = ['trailerType', 'bedLengthFt', 'trailerWidthIn', 'fenderStyle',
   'payloadClass', 'hitchStyle', 'deckMaterial', 'finishColor', 'rampStyle', 'rampLengthFt',
@@ -36,6 +37,7 @@ export class SceneManager {
     this.cameraController = new CameraController(this.camera, canvas, this.requestRender);
     this.materials = new MaterialFactory();
     this.dimensionOverlay = new DimensionOverlay(this.scene);
+    this.cargoEnvelope = new CargoEnvelope(this.scene);
     this.partInspector = new PartInspector(this.scene, canvas, () => this.activeTrailer?.rootGroup, detail => {
       canvas.dispatchEvent(new CustomEvent('part-selected', { detail })); this.requestRender();
     });
@@ -277,9 +279,12 @@ export class SceneManager {
     if (geometryChanged || changed('jackExtensionPct')) {
       this.activeTrailer.setJackPose(state.jackExtensionPct / 100); this.markShadowsDirty();
     }
+    this.cargoEnvelope.update(state, metrics, this.activeTrailer);
+    this.activeTrailer.rootGroup.traverse(object => { if (object.userData.cutaway) object.visible = !state.cargoCutaway; });
+    if (changed('cargoCutaway')) this.markShadowsDirty();
     if (geometryChanged || poseOnly || changed('jackExtensionPct') || DIMENSION_KEYS.some(changed)) this.refreshDimensions();
     this.towTruck.updatePosition(metrics, state.hitchStyle, state.showTowTruck);
-    if (geometryChanged && !poseOnly || changed('showTowTruck') || changed('cameraPreset')) {
+    if (geometryChanged && !poseOnly || changed('showTowTruck') || changed('cameraPreset') || changed('loadPreset')) {
       this.setCameraPreset(state.cameraPreset, undefined, false, !previous);
     }
     const center = this.getBounds().getCenter(new THREE.Vector3());
@@ -294,6 +299,7 @@ export class SceneManager {
     this.scene.updateMatrixWorld(true);
     let bounds = new THREE.Box3().setFromObject(this.activeTrailer.rootGroup);
     if (this.state.showTowTruck) bounds.expandByObject(this.towTruck.group);
+    if (this.cargoEnvelope.group.visible) bounds.expandByObject(this.cargoEnvelope.group);
     if (preset === 'hitch') {
       bounds = new THREE.Box3().setFromObject(this.activeTrailer.hitchGroup);
       bounds.expandByScalar(.3);
@@ -361,6 +367,7 @@ export class SceneManager {
     const moving = this.cameraController.update(delta);
     this.dimensionOverlay.updateScale(this.camera, this.height);
     this.partInspector.update();
+    this.cargoEnvelope.updatePose();
     this.renderer.render(this.scene, this.camera);
     if (moving || this.motion) this.requestRender();
     else this.lastFrameTime = 0;
@@ -373,6 +380,8 @@ export class SceneManager {
   async createSnapshot() {
     this.finishMotion();
     this.cameraController.update(1);
+    this.cargoEnvelope.updatePose();
+    this.partInspector.update();
     this.dimensionOverlay.updateScale(this.camera, this.height);
     this.renderer.render(this.scene, this.camera);
     return new Promise((resolve, reject) => this.canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error('The image could not be saved.')), 'image/png'));
@@ -392,6 +401,7 @@ export class SceneManager {
     this.activeTrailer?.dispose(); this.towTruck.dispose();
     this.cameraController.dispose(); this.dimensionOverlay.dispose();
     this.partInspector.dispose();
+    this.cargoEnvelope.dispose();
     this.environmentTarget.dispose();
     const geometries = new Set(), materials = new Set();
     this.scene.traverse(child => {

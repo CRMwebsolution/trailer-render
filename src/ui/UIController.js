@@ -2,6 +2,8 @@ import { store } from '../core/StateStore.js';
 import { configurationURL, normalizeConfig, DEFAULT_CONFIG } from '../core/config.js';
 import { gltfExporterService } from '../export/GLTFExporterService.js';
 import { designLibrary, STARTER_PRESETS } from '../core/DesignLibrary.js';
+import { computeCargoFit, LOAD_PRESETS } from '../core/cargoFit.js';
+import { formatDistance } from '../core/modelGeometry.js';
 
 const FIELDS = {
   'select-trailer-type': 'trailerType', 'slider-bed-length': 'bedLengthFt',
@@ -9,7 +11,9 @@ const FIELDS = {
   'slider-ramp-length': 'rampLengthFt', 'check-cargo-side-door': 'cargoSideDoor',
   'input-decal-text': 'decalText', 'select-render-quality': 'renderQuality',
   'select-measurement-mode': 'measurementMode', 'select-measurement-units': 'measurementUnits'
-  , 'slider-dump-angle': 'dumpAngleDeg', 'slider-cargo-door': 'cargoDoorOpenPct', 'slider-ramp-deployment': 'rampDeploymentPct', 'slider-jack-extension': 'jackExtensionPct'
+  , 'slider-dump-angle': 'dumpAngleDeg', 'slider-cargo-door': 'cargoDoorOpenPct', 'slider-ramp-deployment': 'rampDeploymentPct', 'slider-jack-extension': 'jackExtensionPct',
+  'input-load-length': 'loadLengthFt', 'input-load-width': 'loadWidthIn', 'input-load-height': 'loadHeightIn',
+  'slider-load-center': 'loadCenterPct', 'slider-load-lateral': 'loadLateralIn', 'slider-load-yaw': 'loadYawDeg', 'check-cargo-cutaway': 'cargoCutaway'
 };
 const RADIOS = {
   'fender-style': 'fenderStyle', 'hitch-style': 'hitchStyle', 'deck-mat': 'deckMaterial',
@@ -51,6 +55,9 @@ export class UIController {
   update(values) { this.flush(); store.update(values); }
 
   bindEvents() {
+    this.listen($('select-load-preset'), 'change', event => {
+      const name = event.target.value; this.update({ loadPreset: name, ...(LOAD_PRESETS[name] || {}) });
+    });
     for (const preset of STARTER_PRESETS) {
       const option = document.createElement('option'); option.value = preset.id; option.textContent = preset.name;
       $('select-starter-preset').appendChild(option);
@@ -80,6 +87,7 @@ export class UIController {
         let value = element.type === 'checkbox' ? element.checked : element.value;
         if (element.type === 'range' || key === 'trailerWidthIn') value = Number(value);
         const update = { [key]: value };
+        if (['loadLengthFt', 'loadWidthIn', 'loadHeightIn'].includes(key)) update.loadPreset = 'custom';
         if (key === 'trailerWidthIn') update.fenderStyle = value === 102 ? 'deck_over' : 'regular';
         if (isInput) this.queue(update, element.type === 'text' ? 180 : 16);
         else this.update(update);
@@ -250,6 +258,16 @@ export class UIController {
     $('val-cargo-door').textContent = `${state.cargoDoorOpenPct}%`;
     $('val-ramp-deployment').textContent = `${state.rampDeploymentPct}%`;
     $('val-jack-extension').textContent = `${state.jackExtensionPct}%`;
+    $('select-load-preset').value = state.loadPreset;
+    $('load-fields').hidden = state.loadPreset === 'none';
+    $('check-cargo-cutaway').closest('label').hidden = state.trailerType !== 'cargo';
+    $('val-load-center').textContent = `${state.loadCenterPct}% from front`;
+    $('val-load-lateral').textContent = `${state.loadLateralIn} in`;
+    $('val-load-yaw').textContent = `${state.loadYawDeg}°`;
+    const fit = computeCargoFit(state, store.getMetrics()), units = state.measurementUnits;
+    $('load-fit-status').textContent = !fit.enabled ? 'Choose a load envelope to check modeled clearance.' : fit.fits ? 'Envelope fits the modeled space.' : 'Envelope extends outside the modeled space.';
+    $('load-fit-status').dataset.fits = String(fit.fits && fit.doorFits !== false);
+    $('load-fit-detail').textContent = !fit.enabled ? '' : `Front: ${formatDistance(fit.frontGap, units, true)} · Rear: ${formatDistance(fit.rearGap, units, true)} · Nearest side: ${formatDistance(fit.sideGap, units, true)}${fit.roofGap !== null ? ` · Roof: ${formatDistance(fit.roofGap, units, true)} · Fully open door: ${fit.doorFits ? 'envelope fits' : 'envelope exceeds opening'}` : ''}`;
     for (const [selector, field, data] of [['[data-color]', 'finishColor', 'color'], ['[data-decal-color]', 'decalColor', 'decalColor'], ['[data-env]', 'environmentMode', 'env'], ['[data-preset]', 'cameraPreset', 'preset']]) {
       document.querySelectorAll(selector).forEach(button => {
         const active = button.dataset[data] === state[field];

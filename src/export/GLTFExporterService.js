@@ -37,8 +37,10 @@ export class GLTFExporterService {
         animations: []
       };
 
+      const exportRoot = trailerRootGroup.clone(true);
+      exportRoot.traverse(object => { if (object.userData.cutaway) object.visible = true; });
       this.exporter.parse(
-        trailerRootGroup,
+        exportRoot,
         (result) => {
           try {
             const blob = new Blob([result], { type: 'model/gltf-binary' });

@@ -28,7 +28,11 @@ export class PartInspector {
   pick(pointer) {
     const root = this.getRoot(); if (!root) return;
     root.updateMatrixWorld(true); this.raycaster.setFromCamera(pointer, this.camera);
-    const hit = this.raycaster.intersectObject(root, true).find(item => item.object.visible && item.object.isMesh);
+    const hit = this.raycaster.intersectObject(root, true).find(item => {
+      if (!item.object.isMesh) return false;
+      for (let object = item.object; object; object = object.parent) if (!object.visible) return false;
+      return true;
+    });
     let object = hit?.object;
     while (object && object !== root && !object.userData.partId) object = object.parent;
     if (object?.userData.partId) this.select(object); else this.clear();

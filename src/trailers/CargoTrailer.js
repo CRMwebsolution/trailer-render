@@ -66,6 +66,7 @@ export class CargoTrailer extends BaseTrailer {
       const wallZ = side * halfWidthM;
       const wallGeo = new THREE.BoxGeometry(bedLengthM, boxHeightM, 0.04);
       const wall = new THREE.Mesh(wallGeo, skinMat);
+      wall.userData.cutaway = true;
       wall.position.set(bedLengthM / 2, deckHeightM + (boxHeightM / 2), wallZ);
       wall.castShadow = true;
       boxGroup.add(wall);
@@ -74,6 +75,7 @@ export class CargoTrailer extends BaseTrailer {
       [deckHeightM + 0.02, deckHeightM + boxHeightM - 0.02].forEach(ty => {
         const trimGeo = new THREE.BoxGeometry(bedLengthM, 0.04, 0.06);
         const trim = new THREE.Mesh(trimGeo, trimMat);
+        trim.userData.cutaway = true;
         trim.position.set(bedLengthM / 2, ty, wallZ);
         boxGroup.add(trim);
       });
@@ -87,6 +89,7 @@ export class CargoTrailer extends BaseTrailer {
           1.15,
           true
         );
+        decalMesh.userData.cutaway = true;
         if (side < 0) decalMesh.rotateY(Math.PI);
         decalMesh.position.set(bedLengthM * 0.52, deckHeightM + (boxHeightM / 2), wallZ + (side * 0.026));
         boxGroup.add(decalMesh);
@@ -96,12 +99,14 @@ export class CargoTrailer extends BaseTrailer {
     // Roof (Seamless Aluminum Roof with subtle crown)
     const roofGeo = new THREE.BoxGeometry(bedLengthM, 0.04, bedWidthM);
     const roof = new THREE.Mesh(roofGeo, skinMat);
+    roof.userData.cutaway = true;
     roof.position.set(bedLengthM / 2, deckHeightM + boxHeightM + 0.02, 0);
     roof.castShadow = true;
     boxGroup.add(roof);
 
     // 3. Aerodynamic Wedge V-Nose (Item 10: clean wedge replacing glitched cone)
     const vNoseGroup = this.createVNoseWedge(vNoseLengthM, halfWidthM, boxHeightM, deckHeightM, skinMat, trimMat, stoneGuardMat);
+    vNoseGroup.userData.cutaway = true;
     boxGroup.add(vNoseGroup);
 
     // 4. Driver-Side 32" RV Man-Door (Item 12)
@@ -181,6 +186,7 @@ export class CargoTrailer extends BaseTrailer {
 
     const doorGroup = new THREE.Group();
     doorGroup.name = 'Driver_Side_Man_Door';
+    doorGroup.userData.cutaway = true;
 
     // Extruded Aluminum Door Frame
     const frameGeo = new THREE.BoxGeometry(doorWidth + 0.06, doorHeight + 0.06, 0.02);

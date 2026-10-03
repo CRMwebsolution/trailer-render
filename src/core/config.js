@@ -8,9 +8,10 @@ export const DEFAULT_CONFIG = Object.freeze({
   cargoRearDoor: 'ramp', cargoSideDoor: true, cargoDoorPosition: 'closed',
   decalText: 'TITAN 14K', decalColor: '#f59e0b',
   environmentMode: 'white', showTowTruck: false, showDimensions: true,
-  cameraPreset: 'isometric', renderQuality: 'auto', measurementMode: 'deck', measurementUnits: 'imperial'
-  , dumpAngleDeg: 0, cargoDoorOpenPct: 0, rampDeploymentPct: 100, jackExtensionPct: 100
-  , inspectMode: false
+  cameraPreset: 'isometric', renderQuality: 'auto', measurementMode: 'deck', measurementUnits: 'imperial',
+  dumpAngleDeg: 0, cargoDoorOpenPct: 0, rampDeploymentPct: 100, jackExtensionPct: 100,
+  inspectMode: false, loadPreset: 'none', loadLengthFt: 15, loadWidthIn: 72, loadHeightIn: 60,
+  loadCenterPct: 50, loadLateralIn: 0, loadYawDeg: 0, cargoCutaway: false
 });
 
 const ENUMS = {
@@ -25,8 +26,9 @@ const ENUMS = {
   cargoRearDoor: ['ramp', 'barn'], cargoDoorPosition: ['closed', 'open', 'custom'],
   environmentMode: ['black', 'white', 'showroom'],
   cameraPreset: ['isometric', 'side', 'top', 'hitch', 'ramps'],
-  renderQuality: ['auto', 'high', 'low']
-  , measurementMode: ['deck', 'overall', 'hitch', 'interior', 'all'], measurementUnits: ['imperial', 'metric']
+  renderQuality: ['auto', 'high', 'low'],
+  measurementMode: ['deck', 'overall', 'hitch', 'interior', 'all'], measurementUnits: ['imperial', 'metric'],
+  loadPreset: ['none', 'pallet', 'car', 'equipment', 'custom']
 };
 
 function numberInRange(value, fallback, min, max, step = 1) {
@@ -46,6 +48,12 @@ export function normalizeConfig(input = {}, changes = {}) {
   state.cargoDoorOpenPct = numberInRange(input.cargoDoorOpenPct, 0, 0, 100);
   state.rampDeploymentPct = numberInRange(input.rampDeploymentPct, 100, 0, 100);
   state.jackExtensionPct = numberInRange(input.jackExtensionPct, 100, 0, 100);
+  state.loadLengthFt = numberInRange(input.loadLengthFt, 15, 1, 40, .1);
+  state.loadWidthIn = numberInRange(input.loadWidthIn, 72, 6, 144);
+  state.loadHeightIn = numberInRange(input.loadHeightIn, 60, 6, 144);
+  state.loadCenterPct = numberInRange(input.loadCenterPct, 50, 0, 100);
+  state.loadLateralIn = numberInRange(input.loadLateralIn, 0, -72, 72);
+  state.loadYawDeg = numberInRange(input.loadYawDeg, 0, -90, 90);
   if ((!Object.hasOwn(input, 'dumpAngleDeg') || Object.hasOwn(changes, 'dumpBedPosition')) && !Object.hasOwn(changes, 'dumpAngleDeg')) state.dumpAngleDeg = state.dumpBedPosition === 'raised' ? 42 : 0;
   if ((!Object.hasOwn(input, 'cargoDoorOpenPct') || Object.hasOwn(changes, 'cargoDoorPosition')) && !Object.hasOwn(changes, 'cargoDoorOpenPct')) state.cargoDoorOpenPct = state.cargoDoorPosition === 'open' ? 100 : 0;
   if ((!Object.hasOwn(input, 'rampDeploymentPct') || Object.hasOwn(changes, 'rampPosition')) && !Object.hasOwn(changes, 'rampDeploymentPct')) state.rampDeploymentPct = state.rampPosition === 'stowed' ? 0 : state.rampPosition === 'standing' ? 50 : 100;
@@ -55,7 +63,7 @@ export function normalizeConfig(input = {}, changes = {}) {
   if ([76, 83, 96, 102].includes(Number(input.trailerWidthIn))) {
     state.trailerWidthIn = Number(input.trailerWidthIn);
   }
-  for (const key of ['showTowTruck', 'showDimensions', 'cargoSideDoor', 'inspectMode']) {
+  for (const key of ['showTowTruck', 'showDimensions', 'cargoSideDoor', 'inspectMode', 'cargoCutaway']) {
     if (typeof input[key] === 'boolean') state[key] = input[key];
   }
   for (const key of ['finishColor', 'decalColor']) {

@@ -7,7 +7,7 @@ All work stays on `codex/configurator-improvements`. Each finished upgrade is te
 - [x] Selectable measurements and unit conversion, based on the procedural model and its current pose.
 - [x] Continuous dump tilt, cargo doors, ramp deployment, and telescoping jack controls.
 - [x] Tap or keyboard-select assemblies, highlight them, read explanations, and open their settings.
-- [ ] Cargo fit visualization.
+- [x] Cargo fit visualization, rotated envelopes, clearance gaps and enclosed-body cutaway.
 - [ ] Improved materials and hardware detail.
 - [ ] Adaptive rendering quality.
 - [ ] Comparison and presentation exports.

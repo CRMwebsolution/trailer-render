@@ -346,6 +346,20 @@
           <input id="slider-jack-extension" class="config-slider" type="range" min="0" max="100" step="1" value="100" />
           <p class="control-help">Movement illustrates the model. Jack movement does not change hitch height or simulate lifting a loaded trailer.</p>
         </details>
+        <details class="section-group load-settings">
+          <summary>Will it fit?</summary>
+          <label class="control-label" for="select-load-preset">Load envelope</label>
+          <select id="select-load-preset" class="config-select"><option value="none">No load</option><option value="pallet">Pallet example</option><option value="car">Passenger car example</option><option value="equipment">Equipment example</option><option value="custom">Custom dimensions</option></select>
+          <div id="load-fields" hidden>
+            <div class="number-grid"><label>Length (ft)<input id="input-load-length" class="config-text" type="number" min="1" max="40" step="0.1" value="15" /></label><label>Width (in)<input id="input-load-width" class="config-text" type="number" min="6" max="144" value="72" /></label><label>Height (in)<input id="input-load-height" class="config-text" type="number" min="6" max="144" value="60" /></label></div>
+            <label class="control-label" for="slider-load-center">Load center <output id="val-load-center">50% from front</output></label><input id="slider-load-center" class="config-slider" type="range" min="0" max="100" value="50" />
+            <label class="control-label" for="slider-load-lateral">Side offset <output id="val-load-lateral">0 in</output></label><input id="slider-load-lateral" class="config-slider" type="range" min="-72" max="72" value="0" />
+            <label class="control-label" for="slider-load-yaw">Rotation <output id="val-load-yaw">0°</output></label><input id="slider-load-yaw" class="config-slider" type="range" min="-90" max="90" value="0" />
+          </div>
+          <label class="checkbox-label"><input id="check-cargo-cutaway" type="checkbox" /> Cut away enclosure walls and roof</label>
+          <p id="load-fit-status" class="fit-status" role="status">Choose a load envelope to check modeled clearance.</p><p id="load-fit-detail" class="control-help"></p>
+          <p class="control-help">Checks a rectangular envelope at rest. Cargo V-nose space, loading paths, ground clearance, securement and real vehicle details are excluded. Negative gaps indicate overlap.</p>
+        </details>
         <details class="section-group measurement-settings">
           <summary>Measurements</summary>
           <label class="control-label" for="select-measurement-mode">Show in the model</label>
