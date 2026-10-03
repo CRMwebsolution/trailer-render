@@ -44,6 +44,7 @@
             <button id="btn-toggle-truck" class="env-preset-btn" aria-pressed="false"><span id="truck-btn-text">Tow vehicle</span></button>
             <button id="btn-toggle-dimensions" class="icon-toggle-btn active" aria-pressed="true" aria-label="Show dimensions" title="Show dimensions">↔</button>
             <button id="btn-snapshot" class="text-btn">Save image</button>
+            <button id="btn-compare-design" class="text-btn">Compare</button>
             <button id="btn-toggle-inspect" class="text-btn" aria-pressed="false">Inspect parts</button>
           </div>
         </nav>
@@ -438,6 +439,13 @@
         <label for="design-name">Design name</label><input id="design-name" type="text" maxlength="40" required />
         <div class="dialog-actions"><button id="btn-cancel-save-local" type="button" class="text-btn">Cancel</button><button id="btn-confirm-save-local" class="secondary-btn" type="submit">Save design</button></div>
       </form>
+    </dialog>
+    <dialog id="comparison-dialog" class="comparison-dialog" aria-labelledby="comparison-heading">
+      <h2 id="comparison-heading">Compare designs</h2><p id="comparison-status" role="status"></p>
+      <div class="comparison-images"><figure><img id="comparison-reference-image" alt="Pinned reference trailer" /><figcaption>Pinned reference</figcaption></figure><figure><img id="comparison-current-image" alt="Current trailer design" /><figcaption>Current design</figcaption></figure></div>
+      <label class="checkbox-label"><input id="check-changed-only" type="checkbox" /> Show changed specifications only</label>
+      <div class="comparison-table"><table><thead><tr><th>Specification</th><th>Reference</th><th>Current</th><th>Change</th></tr></thead><tbody id="comparison-rows"></tbody></table></div>
+      <div class="dialog-actions"><button id="btn-pin-comparison" class="secondary-btn">Pin current as reference</button><button id="btn-export-comparison" class="secondary-btn">Save comparison</button><button id="btn-close-comparison" class="text-btn">Close</button></div>
     </dialog>
     <script type="module" src="/src/main.js"></script>
   </body>

@@ -419,6 +419,41 @@ export class SceneManager {
     context.drawImage(image, (180 - image.width * ratio) / 2, (110 - image.height * ratio) / 2, image.width * ratio, image.height * ratio);
     image.close(); return canvas.toDataURL('image/jpeg', .7);
   }
+  captureView({ preset = 'isometric', width = 640, height = 360, overlays = false, truck = false } = {}) {
+    this.finishMotion(); this.cargoEnvelope.updatePose();
+    const controller = this.cameraController, controls = controller.controls;
+    const saved = { running: this.running, size: this.renderer.getSize(new THREE.Vector2()), ratio: this.renderer.getPixelRatio(),
+      position: this.camera.position.clone(), target: controls.target.clone(), aspect: this.camera.aspect, far: this.camera.far,
+      minDistance: controls.minDistance, damping: controls.enableDamping, enabled: controls.enabled,
+      transition: controller.isTransitioning, cameraGoal: controller.targetCameraPos.clone(), lookGoal: controller.targetLookAt.clone() };
+    const visibility = new Map();
+    const hide = (object, visible) => { if (object) { visibility.set(object, object.visible); object.visible = visible; } };
+    this.running = false; cancelAnimationFrame(this.frame); this.frame = 0;
+    try {
+      hide(this.dimensionOverlay.group, overlays && this.state.showDimensions);
+      hide(this.cargoEnvelope.group, overlays && this.cargoEnvelope.fit.enabled);
+      hide(this.partInspector.highlight, false); hide(this.towTruck.group, truck && this.state.showTowTruck);
+      if (!overlays) this.activeTrailer.rootGroup.traverse(object => { if (object.userData.cutaway) hide(object, true); });
+      this.renderer.setPixelRatio(1); this.renderer.setSize(width, height, false);
+      this.camera.aspect = width / height; this.camera.updateProjectionMatrix();
+      controls.enabled = false; controls.enableDamping = false;
+      const bounds = new THREE.Box3().setFromObject(this.activeTrailer.rootGroup);
+      if (this.towTruck.group.visible) bounds.expandByObject(this.towTruck.group);
+      if (this.cargoEnvelope.group.visible) bounds.expandByObject(this.cargoEnvelope.group);
+      if (this.dimensionOverlay.group.visible) bounds.expandByScalar(.6);
+      controller.frame(bounds, preset, true);
+      this.dimensionOverlay.updateScale(this.camera, height); this.markShadowsDirty(); this.renderer.render(this.scene, this.camera);
+      return this.canvas.toDataURL('image/jpeg', .85);
+    } finally {
+      visibility.forEach((visible, object) => { object.visible = visible; });
+      this.renderer.setPixelRatio(saved.ratio); this.renderer.setSize(saved.size.x, saved.size.y, false);
+      this.camera.position.copy(saved.position); this.camera.aspect = saved.aspect; this.camera.far = saved.far; this.camera.updateProjectionMatrix();
+      controls.target.copy(saved.target); controls.minDistance = saved.minDistance; controls.update();
+      controls.enableDamping = saved.damping; controls.enabled = saved.enabled;
+      controller.targetCameraPos.copy(saved.cameraGoal); controller.targetLookAt.copy(saved.lookGoal); controller.isTransitioning = saved.transition;
+      this.dimensionOverlay.updateScale(this.camera, this.height); this.running = saved.running; this.lastFrameTime = 0; this.markShadowsDirty(); this.requestRender();
+    }
+  }
 
   dispose() {
     this.running = false; cancelAnimationFrame(this.frame);

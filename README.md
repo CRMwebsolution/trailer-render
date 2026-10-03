@@ -13,6 +13,7 @@ An interactive trailer design studio built with Three.js, vanilla JavaScript and
 - Studio, dark and showroom lighting, plus camera presets that frame the actual model bounds.
 - Selectable deck, overall, hitch-to-axle and cargo-opening measurements in imperial or metric units.
 - Sized cargo envelopes with rotation, position, modeled clearance gaps and an enclosure cutaway.
+- Pinned design comparisons with changed specifications, numeric differences and a printable standalone HTML export.
 - Desktop layout with separate controls, preview and specifications; phone layout with a visible 3D preview and Customize/Specifications panels.
 - Save/load configuration JSON, shareable design addresses, PNG snapshots and binary GLB model export.
 - Local GLB and self-contained GLTF truck imports with scale, direction and longitudinal alignment controls.

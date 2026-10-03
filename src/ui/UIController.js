@@ -3,6 +3,8 @@ import { configurationURL, normalizeConfig, DEFAULT_CONFIG } from '../core/confi
 import { designLibrary, STARTER_PRESETS } from '../core/DesignLibrary.js';
 import { computeCargoFit, LOAD_PRESETS } from '../core/cargoFit.js';
 import { formatDistance } from '../core/modelGeometry.js';
+import { compareDesigns } from '../core/designSummary.js';
+import { buildPresentationHTML } from '../export/presentation.js';
 
 const FIELDS = {
   'select-trailer-type': 'trailerType', 'slider-bed-length': 'bedLengthFt',
@@ -27,6 +29,7 @@ export class UIController {
     this.sceneManager = sceneManager;
     this.pending = {};
     this.abort = new AbortController();
+    this.comparisonReference = designLibrary.comparisonReference();
     this.bindEvents();
     this.renderDesignLibrary();
     this.unsubscribe = store.subscribe(state => this.syncFromState(state));
@@ -55,6 +58,21 @@ export class UIController {
   update(values) { this.flush(); store.update(values); }
 
   bindEvents() {
+    this.click('btn-compare-design', () => {
+      if (!this.comparisonReference) this.pinComparison();
+      this.renderComparison(); $('comparison-dialog').showModal();
+    });
+    this.click('btn-pin-comparison', () => { this.pinComparison(); this.renderComparison(); this.showToast('Current design pinned as your comparison reference.'); });
+    this.click('btn-close-comparison', () => $('comparison-dialog').close());
+    this.listen($('check-changed-only'), 'change', () => this.renderComparison(false));
+    this.click('btn-export-comparison', () => {
+      const rows = compareDesigns(this.comparisonReference.config, store.getState());
+      const html = buildPresentationHTML({ title: 'Trailer design comparison', subtitle: 'Each design is framed independently in a perspective view.', headers: ['Specification', 'Reference', 'Current', 'Change'], rows: rows.map(row => [row.label, row.reference, row.value, row.change]),
+        views: [{ label: 'Pinned reference', image: this.comparisonReference.image }, { label: 'Current design', image: this.comparisonImage }],
+        note: 'Dimensions and weights describe the procedural model. Ratings and allowances are illustrative; towing suitability, structural strength and real loading paths are not verified.' });
+      this.download(new Blob([html], { type: 'text/html' }), 'trailer-comparison.html');
+      this.showToast('Comparison saved. Open it to print or save as PDF.');
+    });
     this.listen($('webgl-canvas'), 'quality-change', event => { $('quality-status').textContent = event.detail; });
     $('quality-status').textContent = this.sceneManager.qualityLabel();
     this.listen($('select-load-preset'), 'change', event => {
@@ -309,6 +327,23 @@ export class UIController {
     $('truck-scale').value = '100'; $('truck-offset').value = '0';
     $('val-truck-scale').textContent = '100%'; $('val-truck-offset').textContent = '0.00 m';
     this.sceneManager.refreshTruck();
+  }
+  pinComparison() {
+    this.comparisonReference = { config: { ...store.getState() }, image: this.sceneManager.captureView() };
+    try { designLibrary.saveComparison(this.comparisonReference.config, this.comparisonReference.image); }
+    catch { this.showToast('Reference is available for this session. Browser storage could not keep it.'); }
+  }
+  renderComparison(capture = true) {
+    if (capture) this.comparisonImage = this.sceneManager.captureView();
+    $('comparison-reference-image').src = this.comparisonReference.image; $('comparison-current-image').src = this.comparisonImage;
+    const rows = compareDesigns(this.comparisonReference.config, store.getState()), body = $('comparison-rows'); body.replaceChildren();
+    for (const row of rows) {
+      if ($('check-changed-only').checked && !row.changed) continue;
+      const tr = document.createElement('tr'); tr.dataset.changed = String(row.changed);
+      for (const text of [row.label, row.reference, row.value, row.change]) { const cell = document.createElement('td'); cell.textContent = text; tr.appendChild(cell); }
+      body.appendChild(tr);
+    }
+    $('comparison-status').textContent = `${rows.filter(row => row.changed).length} specifications changed. Close this view, edit your design, then reopen to compare.`;
   }
   renderDesignLibrary() {
     const root = $('saved-design-list'); root.replaceChildren();

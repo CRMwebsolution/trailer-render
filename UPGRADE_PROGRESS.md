@@ -10,7 +10,8 @@ All work stays on `codex/configurator-improvements`. Each finished upgrade is te
 - [x] Cargo fit visualization, rotated envelopes, clearance gaps and enclosed-body cutaway.
 - [x] Matte/satin/gloss paint, surface texture detail, chains, wiring, fasteners and open stake pockets.
 - [x] Device-aware and frame-time-aware automatic quality, stable manual modes and deferred import/export modules.
-- [ ] Comparison and presentation exports.
+- [x] Pinned design comparisons, highlighted changes, persisted references and printable comparison exports.
+- [ ] Multi-view presentation exports.
 - [ ] Feasible truck, load-placement, and turning demonstrations.
 
 Physical dimensions, weights, fit checks, and motion remain modeled or explicitly assumed until real measurements and manufacturer data are supplied. Reference designs are examples, not verified products.

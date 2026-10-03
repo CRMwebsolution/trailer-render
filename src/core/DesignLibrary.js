@@ -40,5 +40,10 @@ export class DesignLibrary {
     return config && typeof config === 'object' && !Array.isArray(config) ? normalizeConfig(config) : null;
   }
   saveRecovery(config) { this.write('pro-trailer.recovery.v1', normalizeConfig(config)); }
+  comparisonReference() {
+    const value = this.read('pro-trailer.comparison.v1', null);
+    return value?.config && typeof value.image === 'string' && /^data:image\/jpeg;base64,[a-z\d+/=]+$/i.test(value.image) && value.image.length < 500000 ? { config: normalizeConfig(value.config), image: value.image } : null;
+  }
+  saveComparison(config, image) { this.write('pro-trailer.comparison.v1', { config: normalizeConfig(config), image }); }
 }
 export const designLibrary = new DesignLibrary();
