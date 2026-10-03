@@ -1,7 +1,7 @@
 name: Configurator checks
 on:
-  push:
-    branches: [codex/configurator-improvements]
+  pull_request:
+    types: [opened, synchronize, reopened]
   workflow_dispatch:
 permissions:
   contents: read
