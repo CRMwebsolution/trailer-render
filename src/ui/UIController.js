@@ -5,6 +5,7 @@ import { computeCargoFit, LOAD_PRESETS } from '../core/cargoFit.js';
 import { formatDistance } from '../core/modelGeometry.js';
 import { compareDesigns, designSummary } from '../core/designSummary.js';
 import { buildPresentationHTML } from '../export/presentation.js';
+import { computeLoadBalance } from '../core/loadBalance.js';
 
 const FIELDS = {
   'select-trailer-type': 'trailerType', 'slider-bed-length': 'bedLengthFt',
@@ -14,7 +15,7 @@ const FIELDS = {
   'select-finish-sheen': 'finishSheen',
   'select-measurement-mode': 'measurementMode', 'select-measurement-units': 'measurementUnits'
   , 'slider-dump-angle': 'dumpAngleDeg', 'slider-cargo-door': 'cargoDoorOpenPct', 'slider-ramp-deployment': 'rampDeploymentPct', 'slider-jack-extension': 'jackExtensionPct',
-  'input-load-length': 'loadLengthFt', 'input-load-width': 'loadWidthIn', 'input-load-height': 'loadHeightIn',
+  'input-load-length': 'loadLengthFt', 'input-load-width': 'loadWidthIn', 'input-load-height': 'loadHeightIn', 'input-load-weight': 'loadWeightLbs',
   'slider-load-center': 'loadCenterPct', 'slider-load-lateral': 'loadLateralIn', 'slider-load-yaw': 'loadYawDeg', 'check-cargo-cutaway': 'cargoCutaway'
 };
 const RADIOS = {
@@ -110,7 +111,7 @@ export class UIController {
         let value = element.type === 'checkbox' ? element.checked : element.value;
         if (element.type === 'range' || key === 'trailerWidthIn') value = Number(value);
         const update = { [key]: value };
-        if (['loadLengthFt', 'loadWidthIn', 'loadHeightIn'].includes(key)) update.loadPreset = 'custom';
+        if (['loadLengthFt', 'loadWidthIn', 'loadHeightIn', 'loadWeightLbs'].includes(key)) update.loadPreset = 'custom';
         if (key === 'trailerWidthIn') update.fenderStyle = value === 102 ? 'deck_over' : 'regular';
         if (isInput) this.queue(update, element.type === 'text' ? 180 : 16);
         else this.update(update);
@@ -292,6 +293,17 @@ export class UIController {
     $('load-fit-status').textContent = !fit.enabled ? 'Choose a load envelope to check modeled clearance.' : fit.fits ? 'Envelope fits the modeled space.' : 'Envelope extends outside the modeled space.';
     $('load-fit-status').dataset.fits = String(fit.fits && fit.doorFits !== false);
     $('load-fit-detail').textContent = !fit.enabled ? '' : `Front: ${formatDistance(fit.frontGap, units, true)} · Rear: ${formatDistance(fit.rearGap, units, true)} · Nearest side: ${formatDistance(fit.sideGap, units, true)}${fit.roofGap !== null ? ` · Roof: ${formatDistance(fit.roofGap, units, true)} · Fully open door: ${fit.doorFits ? 'envelope fits' : 'envelope exceeds opening'}` : ''}`;
+    const balance = computeLoadBalance(state, store.getMetrics()), weight = value => `${Math.round(value).toLocaleString()} lb`;
+    $('load-balance-preview').hidden = !balance.enabled; $('load-balance-values').hidden = !balance.applicable;
+    $('load-balance-status').textContent = balance.applicable ? `Assumed empty hitch share: ${balance.emptyHitchAssumptionPct}%. Amber dot marks the cargo's assumed center of mass.` : 'Lower the dump bed to inspect this level-trailer approximation.';
+    $('load-balance-gross').textContent = weight(balance.grossLbs);
+    $('load-balance-hitch').textContent = `${weight(balance.hitchLbs)} (${balance.hitchPct.toFixed(1)}%)`;
+    $('load-balance-axles').textContent = weight(balance.axleLbs);
+    const warnings = [];
+    if (balance.hitchLbs < 0) warnings.push('The assumed hitch support reaction is negative.');
+    if (balance.grossRemainingLbs < 0) warnings.push(`Selected gross class rating exceeded by ${weight(-balance.grossRemainingLbs)}.`);
+    if (balance.axleRemainingLbs < 0) warnings.push(`Combined axle rating exceeded by ${weight(-balance.axleRemainingLbs)}.`);
+    $('load-balance-warning').hidden = !balance.applicable || !warnings.length; $('load-balance-warning').textContent = warnings.join(' ');
     for (const [selector, field, data] of [['[data-color]', 'finishColor', 'color'], ['[data-decal-color]', 'decalColor', 'decalColor'], ['[data-env]', 'environmentMode', 'env'], ['[data-preset]', 'cameraPreset', 'preset']]) {
       document.querySelectorAll(selector).forEach(button => {
         const active = button.dataset[data] === state[field];

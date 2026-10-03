@@ -1,5 +1,6 @@
 import { normalizeConfig } from './config.js';
 import { PhysicsMetrics } from './PhysicsMetrics.js';
+import { computeLoadBalance } from './loadBalance.js';
 
 const names = { flatbed: 'Flatbed / equipment', dump: 'Hydraulic dump', cargo: 'Enclosed cargo' };
 const pounds = value => `${value.toLocaleString('en-US')} lb`;
@@ -24,6 +25,9 @@ export function designSummary(config) {
   if (s.trailerType === 'dump') rows.push({ key: 'motion', label: 'Dump bed / gate', value: `${s.dumpAngleDeg}° tilt · ${s.dumpDoorStyle}` });
   if (s.trailerType === 'cargo') rows.push({ key: 'motion', label: 'Cargo doors', value: `${s.cargoRearDoor} · ${s.cargoDoorOpenPct}% open · side door ${s.cargoSideDoor ? 'included' : 'omitted'}` });
   rows.push({ key: 'load', label: 'Load envelope', value: s.loadPreset === 'none' ? 'None' : `${s.loadLengthFt} ft × ${s.loadWidthIn} in × ${s.loadHeightIn} in · ${s.loadCenterPct}% center · ${s.loadYawDeg}°` });
+  const balance = computeLoadBalance(s, m);
+  if (balance.enabled) rows.push({ key: 'loadWeight', label: 'Assumed cargo weight', value: pounds(s.loadWeightLbs), numeric: s.loadWeightLbs, unit: 'lb' });
+  if (balance.applicable) rows.push({ key: 'loadedTotal', label: 'Estimated loaded total', value: pounds(Math.round(balance.grossLbs)), numeric: Math.round(balance.grossLbs), unit: 'lb' }, { key: 'loadedHitch', label: 'Estimated loaded hitch support', value: pounds(Math.round(balance.hitchLbs)), numeric: Math.round(balance.hitchLbs), unit: 'lb' }, { key: 'loadedAxles', label: 'Estimated combined axle support', value: pounds(Math.round(balance.axleLbs)), numeric: Math.round(balance.axleLbs), unit: 'lb' });
   return rows;
 }
 export function compareDesigns(reference, current) {

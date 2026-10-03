@@ -8,3 +8,4 @@ import './motion.test.js';
 import './cargoFit.test.js';
 import './quality.test.js';
 import './comparison.test.js';
+import './loadBalance.test.js';

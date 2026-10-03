@@ -2,9 +2,9 @@ import { normalizeConfig } from './config.js';
 import { measurementValues } from './modelGeometry.js';
 
 export const LOAD_PRESETS = {
-  pallet: { loadLengthFt: 4, loadWidthIn: 48, loadHeightIn: 48 },
-  car: { loadLengthFt: 15, loadWidthIn: 72, loadHeightIn: 60 },
-  equipment: { loadLengthFt: 12, loadWidthIn: 78, loadHeightIn: 84 }
+  pallet: { loadLengthFt: 4, loadWidthIn: 48, loadHeightIn: 48, loadWeightLbs: 1000 },
+  car: { loadLengthFt: 15, loadWidthIn: 72, loadHeightIn: 60, loadWeightLbs: 3500 },
+  equipment: { loadLengthFt: 12, loadWidthIn: 78, loadHeightIn: 84, loadWeightLbs: 5000 }
 };
 
 // A rectangular envelope against the procedural model, with no loading-path simulation.
@@ -16,7 +16,7 @@ export function computeCargoFit(config, metrics) {
   const spanZ = Math.abs(Math.sin(yaw)) * length + Math.abs(Math.cos(yaw)) * width;
   const centerX = metrics.bedLengthM * s.loadCenterPct / 100, centerZ = s.loadLateralIn * .0254;
   const inset = s.trailerType === 'dump' ? .05 : 0;
-  const availableWidth = s.trailerType === 'cargo' ? v.interiorWidth : metrics.bedWidthM - inset * 2;
+  const availableWidth = s.trailerType === 'cargo' ? v.interiorWidth : metrics.bedWidthM - (s.trailerType === 'dump' || !metrics.deckOver ? .10 : 0);
   const frontGap = centerX - spanX / 2 - inset, rearGap = metrics.bedLengthM - inset - centerX - spanX / 2;
   const sideGap = availableWidth / 2 - Math.abs(centerZ) - spanZ / 2;
   const roofGap = s.trailerType === 'cargo' ? v.interiorHeight - height : null;

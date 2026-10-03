@@ -152,3 +152,11 @@ input[type='range'].config-slider { background: transparent; height: 32px; }
 .comparison-dialog .dialog-actions { flex-wrap: wrap; position: sticky; bottom: -24px; padding: 14px 0; background: #1c2632; }
 .presentation-settings > :not(summary) { margin-top: 12px; }
 @media(max-width:600px) { .comparison-images { grid-template-columns: 1fr; } .comparison-dialog { padding: 16px; } }
+
+.load-settings .number-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }
+.load-balance-preview { border-top: 1px solid #354353; padding-top: 14px; margin-top: 16px; }
+.load-balance-preview h3 { font-size: .8rem; margin: 0; }
+.load-balance-preview dl { font-size: .72rem; }
+.load-balance-preview dl div { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin: 10px 0; }
+.load-balance-preview dt { color: #9daebe; }
+.load-balance-preview dd { margin: 0; white-space: nowrap; font-weight: 650; }

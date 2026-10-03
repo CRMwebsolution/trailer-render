@@ -11,7 +11,7 @@ export const DEFAULT_CONFIG = Object.freeze({
   cameraPreset: 'isometric', renderQuality: 'auto', measurementMode: 'deck', measurementUnits: 'imperial',
   dumpAngleDeg: 0, cargoDoorOpenPct: 0, rampDeploymentPct: 100, jackExtensionPct: 100,
   inspectMode: false, loadPreset: 'none', loadLengthFt: 15, loadWidthIn: 72, loadHeightIn: 60,
-  loadCenterPct: 50, loadLateralIn: 0, loadYawDeg: 0, cargoCutaway: false
+  loadCenterPct: 50, loadLateralIn: 0, loadYawDeg: 0, cargoCutaway: false, loadWeightLbs: 3500
 });
 
 const ENUMS = {
@@ -55,6 +55,7 @@ export function normalizeConfig(input = {}, changes = {}) {
   state.loadCenterPct = numberInRange(input.loadCenterPct, 50, 0, 100);
   state.loadLateralIn = numberInRange(input.loadLateralIn, 0, -72, 72);
   state.loadYawDeg = numberInRange(input.loadYawDeg, 0, -90, 90);
+  state.loadWeightLbs = numberInRange(input.loadWeightLbs, 3500, 0, 50000, 25);
   if ((!Object.hasOwn(input, 'dumpAngleDeg') || Object.hasOwn(changes, 'dumpBedPosition')) && !Object.hasOwn(changes, 'dumpAngleDeg')) state.dumpAngleDeg = state.dumpBedPosition === 'raised' ? 42 : 0;
   if ((!Object.hasOwn(input, 'cargoDoorOpenPct') || Object.hasOwn(changes, 'cargoDoorPosition')) && !Object.hasOwn(changes, 'cargoDoorOpenPct')) state.cargoDoorOpenPct = state.cargoDoorPosition === 'open' ? 100 : 0;
   if ((!Object.hasOwn(input, 'rampDeploymentPct') || Object.hasOwn(changes, 'rampPosition')) && !Object.hasOwn(changes, 'rampDeploymentPct')) state.rampDeploymentPct = state.rampPosition === 'stowed' ? 0 : state.rampPosition === 'standing' ? 50 : 100;

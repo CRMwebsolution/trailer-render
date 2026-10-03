@@ -40,7 +40,7 @@ npm test
 
 ## Important model limits
 
-This is a visualization tool. Estimated weights use approximate material allowances; the axle-group location is a fixed 60% of deck length. Empty hitch weight assumes 12.5% for bumper pull and 22% for gooseneck. The application does not calculate loaded weight distribution, vehicle capacity, turning collision, structural strength or vehicle breakover clearance. Use manufacturer ratings and measured dimensions for real equipment.
+This is a visualization tool. Estimated weights use approximate material allowances; the axle-group location is a fixed 60% of deck length. Empty hitch weight assumes 12.5% for bumper pull and 22% for gooseneck. The separate load-balance preview uses those empty reactions and one cargo point mass on a level trailer. It does not resolve individual axle loads, side-to-side distribution, towing dynamics, vehicle capacity, turning collision, structural strength or vehicle breakover clearance. Use manufacturer ratings and measured dimensions for real equipment.
 
 The weight class describes the chosen modeled rating, not a certification of the generated design. Cargo configurations use an A-frame bumper-pull hitch. Dual-wheel classes require the raised 102-inch deck-over platform. Exported GLB files contain visualization meshes, not fabrication-ready CAD drawings.
 

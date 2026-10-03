@@ -9,6 +9,8 @@ export class CargoEnvelope {
     this.mesh = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), this.fillMaterial);
     this.edges = new THREE.LineSegments(new THREE.EdgesGeometry(this.mesh.geometry), this.lineMaterial);
     this.mesh.add(this.edges); this.group.add(this.mesh); this.group.visible = false;
+    this.center = new THREE.Mesh(new THREE.SphereGeometry(.055, 12, 8), new THREE.MeshBasicMaterial({ color: '#f59e0b', depthTest: false }));
+    this.center.name = 'Assumed_Load_Center'; this.center.renderOrder = 4; this.group.add(this.center);
   }
   update(state, metrics, trailer) {
     this.fit = computeCargoFit(state, metrics); this.state = state; this.metrics = metrics; this.trailer = trailer;
@@ -26,11 +28,13 @@ export class CargoEnvelope {
       this.mesh.position.set(f.centerX - this.metrics.bedLengthM, .14 + f.height / 2, f.centerZ);
     } else {
       this.group.position.set(0, 0, 0); this.group.quaternion.identity();
-      this.mesh.position.set(f.centerX, this.metrics.deckHeightM + .02 + f.height / 2, f.centerZ);
+      this.mesh.position.set(f.centerX, this.metrics.deckHeightM + (this.state.trailerType === 'flatbed' ? .05 : .02) + f.height / 2, f.centerZ);
     }
+    this.center.position.copy(this.mesh.position);
   }
   dispose() {
     this.group.removeFromParent(); this.mesh.geometry.dispose(); this.edges.geometry.dispose();
     this.fillMaterial.dispose(); this.lineMaterial.dispose();
+    this.center.geometry.dispose(); this.center.material.dispose();
   }
 }
