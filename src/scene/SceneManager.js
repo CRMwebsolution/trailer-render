@@ -403,7 +403,9 @@ export class SceneManager {
     this.markShadowsDirty(); this.requestRender();
   }
   async createSnapshot() {
+    const wasMoving = !!this.motion;
     this.finishMotion();
+    if (wasMoving) this.refreshDimensions();
     this.cameraController.update(1);
     this.cargoEnvelope.updatePose();
     this.partInspector.update();
@@ -420,7 +422,8 @@ export class SceneManager {
     image.close(); return canvas.toDataURL('image/jpeg', .7);
   }
   captureView({ preset = 'isometric', width = 640, height = 360, overlays = false, truck = false } = {}) {
-    this.finishMotion(); this.cargoEnvelope.updatePose();
+    const wasMoving = !!this.motion;
+    this.finishMotion(); if (wasMoving) this.refreshDimensions(); this.cargoEnvelope.updatePose();
     const controller = this.cameraController, controls = controller.controls;
     const saved = { running: this.running, size: this.renderer.getSize(new THREE.Vector2()), ratio: this.renderer.getPixelRatio(),
       position: this.camera.position.clone(), target: controls.target.clone(), aspect: this.camera.aspect, far: this.camera.far,

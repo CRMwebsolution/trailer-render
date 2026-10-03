@@ -11,7 +11,7 @@ All work stays on `codex/configurator-improvements`. Each finished upgrade is te
 - [x] Matte/satin/gloss paint, surface texture detail, chains, wiring, fasteners and open stake pockets.
 - [x] Device-aware and frame-time-aware automatic quality, stable manual modes and deferred import/export modules.
 - [x] Pinned design comparisons, highlighted changes, persisted references and printable comparison exports.
-- [ ] Multi-view presentation exports.
+- [x] Four-view printable spec sheets with high-resolution embedded images, optional overlays/vehicle and editable design copies.
 - [ ] Feasible truck, load-placement, and turning demonstrations.
 
 Physical dimensions, weights, fit checks, and motion remain modeled or explicitly assumed until real measurements and manufacturer data are supplied. Reference designs are examples, not verified products.

@@ -3,7 +3,7 @@ import { configurationURL, normalizeConfig, DEFAULT_CONFIG } from '../core/confi
 import { designLibrary, STARTER_PRESETS } from '../core/DesignLibrary.js';
 import { computeCargoFit, LOAD_PRESETS } from '../core/cargoFit.js';
 import { formatDistance } from '../core/modelGeometry.js';
-import { compareDesigns } from '../core/designSummary.js';
+import { compareDesigns, designSummary } from '../core/designSummary.js';
 import { buildPresentationHTML } from '../export/presentation.js';
 
 const FIELDS = {
@@ -58,6 +58,9 @@ export class UIController {
   update(values) { this.flush(); store.update(values); }
 
   bindEvents() {
+    this.click('btn-export-spec-sheet', () => this.exportSpecSheet());
+    this.click('btn-cancel-sheet', () => { this.sheetCancelled = true; $('sheet-progress-dialog').close(); });
+    this.listen($('sheet-progress-dialog'), 'cancel', () => { this.sheetCancelled = true; });
     this.click('btn-compare-design', () => {
       if (!this.comparisonReference) this.pinComparison();
       this.renderComparison(); $('comparison-dialog').showModal();
@@ -301,6 +304,7 @@ export class UIController {
       $(id).setAttribute('aria-pressed', String(value));
     }
     $('group-ramp-controls').style.display = state.trailerType === 'flatbed' ? 'flex' : 'none';
+    $('check-export-truck').disabled = !state.showTowTruck;
     $('group-dump-controls').style.display = state.trailerType === 'dump' ? 'flex' : 'none';
     $('group-cargo-controls').style.display = state.trailerType === 'cargo' ? 'flex' : 'none';
     $('group-hitch-controls').style.display = state.trailerType === 'cargo' ? 'none' : 'flex';
@@ -332,6 +336,29 @@ export class UIController {
     this.comparisonReference = { config: { ...store.getState() }, image: this.sceneManager.captureView() };
     try { designLibrary.saveComparison(this.comparisonReference.config, this.comparisonReference.image); }
     catch { this.showToast('Reference is available for this session. Browser storage could not keep it.'); }
+  }
+  async exportSpecSheet() {
+    const button = $('btn-export-spec-sheet'); button.disabled = true; button.setAttribute('aria-busy', 'true');
+    const state = { ...store.getState() }, views = []; this.sheetCancelled = false;
+    try {
+      $('sheet-progress-dialog').showModal();
+      for (const [preset, label] of [['isometric', 'Perspective'], ['side', 'Side view'], ['top', 'Top view'], ['ramps', 'Rear perspective']]) {
+        $('sheet-progress-status').textContent = `Preparing ${label.toLowerCase()} (${views.length + 1} of 4)…`;
+        await new Promise(resolve => requestAnimationFrame(resolve));
+        if (this.sheetCancelled) return;
+        views.push({ label, image: this.sceneManager.captureView({ preset, width: 1280, height: 720, overlays: $('check-export-overlays').checked, truck: $('check-export-truck').checked }) });
+      }
+      if (this.sheetCancelled) return;
+      const html = buildPresentationHTML({ title: $('input-export-title').value.trim() || state.decalText || 'Trailer design study',
+        subtitle: `${state.bedLengthFt} ft × ${state.trailerWidthIn} in · ${state.trailerType} · Current modeled pose`, views,
+        rows: designSummary(state).map(row => [row.label, row.value]), config: state,
+        note: 'This sheet describes a procedural visualization. Dimensions, component weights and payload allowances are illustrative. Verify actual equipment dimensions and manufacturer ratings. Custom truck files are separate from the editable design.' });
+      this.download(new Blob([html], { type: 'text/html' }), 'trailer-spec-sheet.html');
+      this.showToast('Four-view sheet saved. Open it to print, save as PDF, or download its editable design.');
+    } finally {
+      if ($('sheet-progress-dialog').open) $('sheet-progress-dialog').close();
+      button.disabled = false; button.removeAttribute('aria-busy');
+    }
   }
   renderComparison(capture = true) {
     if (capture) this.comparisonImage = this.sceneManager.captureView();

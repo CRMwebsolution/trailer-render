@@ -390,6 +390,12 @@
           <p class="control-help">Automatic quality reduces detail if motion stays slow. High detail and Battery saver keep your selected level. The view stops rendering while idle.</p>
         </details>
         <!-- Model Export -->
+        <details class="section-group presentation-settings"><summary>Presentation & spec sheet</summary>
+          <label class="control-label" for="input-export-title">Sheet title</label><input id="input-export-title" class="config-text" type="text" maxlength="64" placeholder="Use the signage or enter a title" />
+          <label class="checkbox-label"><input id="check-export-overlays" type="checkbox" /> Include visible measurements and load</label>
+          <label class="checkbox-label"><input id="check-export-truck" type="checkbox" disabled /> Include displayed tow vehicle</label>
+          <p class="control-help">Four fitted views, specifications and an editable design copy. The downloaded sheet opens in a browser and supports Print / Save as PDF.</p><button id="btn-export-spec-sheet" class="secondary-btn">Save four-view spec sheet</button>
+        </details>
         <div class="section-group">
           <button id="btn-export-glb" class="btn-export">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
@@ -447,6 +453,7 @@
       <div class="comparison-table"><table><thead><tr><th>Specification</th><th>Reference</th><th>Current</th><th>Change</th></tr></thead><tbody id="comparison-rows"></tbody></table></div>
       <div class="dialog-actions"><button id="btn-pin-comparison" class="secondary-btn">Pin current as reference</button><button id="btn-export-comparison" class="secondary-btn">Save comparison</button><button id="btn-close-comparison" class="text-btn">Close</button></div>
     </dialog>
+    <dialog id="sheet-progress-dialog" aria-labelledby="sheet-progress-heading"><h2 id="sheet-progress-heading">Preparing your sheet</h2><p id="sheet-progress-status" role="status">Preparing views…</p><button id="btn-cancel-sheet" class="text-btn">Cancel</button></dialog>
     <script type="module" src="/src/main.js"></script>
   </body>
 </html>

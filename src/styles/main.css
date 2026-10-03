@@ -150,4 +150,5 @@ input[type='range'].config-slider { background: transparent; height: 32px; }
 .comparison-table tr[data-changed="true"] { background: #f5ad3210; }
 .comparison-table tr[data-changed="true"] td:last-child { color: #f5ad32; }
 .comparison-dialog .dialog-actions { flex-wrap: wrap; position: sticky; bottom: -24px; padding: 14px 0; background: #1c2632; }
+.presentation-settings > :not(summary) { margin-top: 12px; }
 @media(max-width:600px) { .comparison-images { grid-template-columns: 1fr; } .comparison-dialog { padding: 16px; } }
