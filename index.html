@@ -3,94 +3,111 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="Professional 3D Procedural Utility Trailer Configurator with real-time towing kinematics, 60/40 axle distribution, Ford F-250 clearance verification, and GLB export." />
+    <meta name="description" content="Explore flatbed, dump and enclosed trailers in 3D. Adjust dimensions, compare styles and export your design." />
     <meta name="theme-color" content="#0c0d10" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <title>3D Utility Trailer Configurator | Heavy Equipment & Towing Kinematics</title>
+    <title>Pro-Trailer 3D | Trailer Design Studio</title>
     <link rel="stylesheet" href="/src/styles/main.css" />
   </head>
   <body>
-    <div id="app">
-      <!-- 3D Canvas Viewport -->
-      <div id="viewport-container">
-        <canvas id="webgl-canvas"></canvas>
-      </div>
-
-      <!-- Top Navigation & Viewport Controls -->
+    <noscript>This design studio needs JavaScript to show the trailer and controls.</noscript>
+    <div id="app" data-mobile-panel="config">
       <header class="top-header">
-        <div class="brand-section">
-          <svg class="brand-logo" viewBox="0 0 64 64" fill="none">
-            <rect width="64" height="64" rx="12" fill="#18181b"/>
-            <rect x="14" y="32" width="42" height="6" rx="2" fill="#f59e0b"/>
-            <path d="M14 35 L6 42" stroke="#f59e0b" stroke-width="3" stroke-linecap="round"/>
-            <circle cx="34" cy="42" r="7" fill="#09090b" stroke="#71717a" stroke-width="2"/>
-            <circle cx="44" cy="42" r="7" fill="#09090b" stroke="#71717a" stroke-width="2"/>
-          </svg>
-          <span class="brand-title">PRO-TRAILER 3D</span>
-          <span class="brand-badge">Procedural CAD v2.4</span>
+        <div class="brand-row">
+          <div class="brand-section">
+            <svg class="brand-logo" viewBox="0 0 64 64" fill="none" aria-hidden="true"><rect width="64" height="64" rx="12" fill="#18181b"/><path d="M14 35H56M14 35L6 42" stroke="#f59e0b" stroke-width="5" stroke-linecap="round"/><circle cx="34" cy="44" r="6" stroke="#94a3b8" stroke-width="3"/><circle cx="48" cy="44" r="6" stroke="#94a3b8" stroke-width="3"/></svg>
+            <span class="brand-title">PRO-TRAILER <span>3D</span></span>
+            <span class="brand-badge">Design studio</span>
+          </div>
+          <div class="document-actions" aria-label="Design actions">
+            <button id="btn-save-design" class="text-btn" title="Download configuration as a JSON file">Save<span class="desktop-label"> design</span></button>
+            <button id="btn-load-design" class="text-btn">Load<span class="desktop-label"> design</span></button>
+            <input type="file" id="input-design-file" accept=".json,application/json" hidden />
+            <button id="btn-share-design" class="text-btn accent">Share</button>
+          </div>
         </div>
-
-        <div class="header-actions">
-          <button class="camera-preset-btn active" data-preset="isometric">Isometric</button>
-          <button class="camera-preset-btn" data-preset="side">Side Profile</button>
-          <button class="camera-preset-btn" data-preset="top">Top Down</button>
-          <button class="camera-preset-btn" data-preset="hitch">Hitch Detail</button>
-          <button class="camera-preset-btn" data-preset="ramps">Ramps</button>
-          
-          <div style="width: 1px; height: 22px; background: rgba(255,255,255,0.15); margin: 0 4px;"></div>
-
-          <!-- Environment Presets (Dark, White, Showroom) -->
-          <button class="env-preset-btn active" data-env="black" title="Studio Dark Black">Dark</button>
-          <button class="env-preset-btn" data-env="white" title="Clean White Floor">White</button>
-          <button class="env-preset-btn" data-env="showroom" title="Showroom Warm Lights">Showroom</button>
-
-          <div style="width: 1px; height: 22px; background: rgba(255,255,255,0.15); margin: 0 4px;"></div>
-
-          <!-- 3D Tow Vehicle Controls -->
-          <button id="btn-toggle-truck" class="env-preset-btn" title="Toggle 2016 Ford F-250 SRW Tow Vehicle">
-            <span style="margin-right: 4px;">🚛</span> <span id="truck-btn-text">F-250 Truck</span>
-          </button>
-          <label class="env-preset-btn" id="lbl-load-truck" title="Load custom 3D truck model (.glb or .gltf)" style="cursor: pointer; display: inline-flex; align-items: center;">
-            <span style="margin-right: 4px;">📂</span> <span>Load 3D Truck</span>
-            <input type="file" id="input-truck-file" accept=".glb,.gltf" style="display: none;" />
-          </label>
-          <button id="btn-reset-truck" class="env-preset-btn" title="Reset to procedural Ford F-250" style="display: none;">
-            <span>↺ F-250</span>
-          </button>
-
-          <button id="btn-toggle-dimensions" class="icon-toggle-btn active" title="Toggle 3D Dimension Overlays">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M21 6H3M21 18H3M6 3v18M18 3v18"/>
-            </svg>
-          </button>
-        </div>
+        <nav class="header-actions" aria-label="3D view controls">
+          <div class="toolbar-group" aria-label="Camera views">
+            <button class="camera-preset-btn active" data-preset="isometric" aria-pressed="true">Perspective</button>
+            <button class="camera-preset-btn" data-preset="side" aria-pressed="false">Side</button>
+            <button class="camera-preset-btn" data-preset="top" aria-pressed="false">Top</button>
+            <button class="camera-preset-btn" data-preset="hitch" aria-pressed="false">Hitch</button>
+            <button class="camera-preset-btn" data-preset="ramps" aria-pressed="false">Rear</button>
+            <button id="btn-fit-view" class="text-btn" title="Fit the whole model in view">Fit view</button>
+          </div>
+          <div class="toolbar-group" aria-label="Lighting">
+            <button class="env-preset-btn" data-env="black" aria-pressed="false">Dark</button>
+            <button class="env-preset-btn active" data-env="white" aria-pressed="true">Studio</button>
+            <button class="env-preset-btn" data-env="showroom" aria-pressed="false">Showroom</button>
+          </div>
+          <div class="toolbar-group">
+            <button id="btn-toggle-truck" class="env-preset-btn" aria-pressed="false"><span id="truck-btn-text">Tow vehicle</span></button>
+            <button id="btn-toggle-dimensions" class="icon-toggle-btn active" aria-pressed="true" aria-label="Show dimensions" title="Show dimensions">↔</button>
+            <button id="btn-snapshot" class="text-btn">Save image</button>
+            <button id="btn-compare-design" class="text-btn">Compare</button>
+            <button id="btn-toggle-inspect" class="text-btn" aria-pressed="false">Inspect parts</button>
+          </div>
+        </nav>
       </header>
 
+      <main id="viewport-container" aria-label="Interactive trailer preview">
+        <canvas id="webgl-canvas" tabindex="0" aria-label="3D trailer. Drag to rotate, scroll or pinch to zoom. Use the camera buttons for preset views."></canvas>
+        <div class="viewport-caption"><span id="model-title">Flatbed trailer</span><span id="model-dimensions">20 ft × 83 in</span></div>
+        <p class="viewport-hint">Drag to orbit <span>·</span> Pinch or scroll to zoom</p>
+        <div id="viewport-status" class="viewport-status" role="status" hidden></div>
+      </main>
+
+      <nav class="mobile-panel-switch" aria-label="Configuration panels">
+        <button data-panel="config" aria-pressed="true">Customize</button>
+        <button data-panel="metrics" aria-pressed="false">Specifications</button>
+      </nav>
+
       <!-- Left Semi-Transparent Configuration Panel -->
-      <aside class="config-panel">
+      <aside class="config-panel" aria-label="Customize your trailer">
+        <div class="panel-intro"><span class="eyebrow">YOUR BUILD</span><h1>Make it yours.</h1><p>Choose a trailer, then explore the details.</p></div>
+        <div class="history-toolbar" aria-label="Edit history">
+          <button id="btn-undo" class="secondary-btn" title="Undo (Ctrl/Cmd+Z)" disabled>↶ Undo</button>
+          <button id="btn-redo" class="secondary-btn" title="Redo (Ctrl/Cmd+Shift+Z)" disabled>↷ Redo</button>
+          <button id="btn-reset-design" class="text-btn">Reset</button>
+        </div>
+        <details class="section-group design-library">
+          <summary>Presets & saved designs</summary>
+          <select id="select-starter-preset" class="config-select" aria-label="Starter trailer preset"><option value="">Choose a starter design…</option></select>
+          <p class="control-help">Example configurations. No manufacturer dimensions or ratings are verified.</p>
+          <button id="btn-save-local" class="secondary-btn">Save a named design</button>
+          <div id="saved-design-list"></div>
+          <p id="saved-design-empty" class="control-help">Your saved designs will appear here.</p>
+          <p id="autosave-status" class="control-help" role="status"></p>
+        </details>
+        <details class="section-group inspect-settings">
+          <summary>Inspect a component</summary>
+          <p class="control-help">Enable Inspect parts, then tap the model, or choose a component here.</p>
+          <select id="select-inspect-part" class="config-select" aria-label="Component to inspect"><option value="">Choose a component…</option><option value="frame">Frame & crossmembers</option><option value="wheels">Wheels, axles & fenders</option><option value="deck">Deck & body</option><option value="hitch">Hitch & tongue</option><option value="jack">Tongue jack</option><option value="ramps">Loading ramps</option><option value="lighting">Lights & accessories</option></select>
+        </details>
+        <section id="part-inspector" class="part-inspector" aria-live="polite" hidden><h2 id="part-title"></h2><p id="part-description" class="control-help"></p><div class="history-toolbar"><button id="btn-part-settings" class="secondary-btn">Open settings</button><button id="btn-clear-part" class="text-btn">Clear</button></div></section>
         <!-- 1. Trailer Platform Type -->
         <div class="section-group">
           <div class="section-title">
-            <span>Trailer Architecture</span>
-            <span class="badge">Modular OOP</span>
+            <span>Trailer type</span>
+
           </div>
-          <select id="select-trailer-type" class="config-select">
+          <select id="select-trailer-type" aria-label="Trailer type" class="config-select">
             <option value="flatbed" selected>Flatbed / Equipment Trailer</option>
             <option value="dump">Dump Trailer (Hydraulic Hoist)</option>
             <option value="cargo">Enclosed V-Nose Cargo Trailer</option>
           </select>
         </div>
 
-        <!-- 2. Dimensions & Width -->
-        <div class="section-group">
+        <!-- 2. Size -->
+        <div class="section-group" id="group-size-controls">
           <div class="section-title">
-            <span>Dimensions & Width</span>
+            <span>Size</span>
           </div>
           <div class="control-label">
             <span>Bed Length</span>
             <span id="val-bed-length" class="control-val">20 ft</span>
           </div>
-          <input type="range" id="slider-bed-length" class="config-slider" min="10" max="30" step="1" value="20" />
+          <input type="range" id="slider-bed-length" aria-label="Bed length in feet" class="config-slider" min="10" max="30" step="1" value="20" />
           <div style="display:flex; justify-content:space-between; font-size:0.7rem; color:#64748b; margin-bottom: 8px;">
             <span>10 ft</span>
             <span>20 ft</span>
@@ -100,11 +117,11 @@
           <div class="control-label" style="margin-bottom: 4px;">
             <span>Trailer Width</span>
           </div>
-          <select id="select-trailer-width" class="config-select">
+          <select id="select-trailer-width" aria-label="Trailer width" class="config-select">
             <option value="76">76" (6.3 ft) - Narrow / Utility</option>
             <option value="83" selected>83" (6.9 ft) - Standard Equipment</option>
             <option value="96">96" (8.0 ft) - Commercial Wide</option>
-            <option value="102">102" (8.5 ft) - Deck-Over Full Width</option>
+            <option value="102">102" (8.5 ft) · Deck-over</option>
           </select>
         </div>
 
@@ -116,7 +133,7 @@
           <div class="segmented-control">
             <div class="segmented-option">
               <input type="radio" id="fender-regular" name="fender-style" value="regular" checked />
-              <label for="fender-regular">Teardrop</label>
+              <label for="fender-regular">Standard</label>
             </div>
             <div class="segmented-option">
               <input type="radio" id="fender-driveover" name="fender-style" value="drive_over" />
@@ -130,18 +147,20 @@
         </div>
 
         <!-- 4. Payload & Axle Class -->
-        <div class="section-group">
+        <div class="section-group" id="group-axle-controls">
           <div class="section-title">
-            <span>Payload / Axle Class</span>
+            <span>Weight class</span>
           </div>
-          <select id="select-payload-class" class="config-select">
-            <option value="single">Single Axle (3,500 lbs GVWR)</option>
-            <option value="10K">10K Tandem (9,990 lbs GVWR)</option>
-            <option value="14K" selected>14K Heavy Duty Tandem (14,000 lbs)</option>
-            <option value="20K">20K Tandem Duals (20,000 lbs)</option>
-            <option value="25K">25K Heavy Triple / Dual Tandem (25,900 lbs)</option>
+          <select id="select-payload-class" aria-label="Weight class" class="config-select">
+            <option value="single">Single axle · 3,500 lb rating</option>
+            <option value="10K">10K tandem · 9,990 lb rating</option>
+            <option value="14K" selected>14K tandem · 14,000 lb rating</option>
+            <option value="20K">20K tandem duals · deck-over</option>
+            <option value="25K">25K triple duals · deck-over</option>
           </select>
         </div>
+
+        <p id="configuration-note" class="control-help" hidden>Dual-wheel classes use a 102-inch deck-over platform.</p>
 
         <!-- 5. Hitch Style -->
         <div class="section-group" id="group-hitch-controls">
@@ -151,11 +170,11 @@
           <div class="segmented-control">
             <div class="segmented-option">
               <input type="radio" id="hitch-bp" name="hitch-style" value="bumper_pull" checked />
-              <label for="hitch-bp">Bumper Pull (19" Rec)</label>
+              <label for="hitch-bp">Bumper pull</label>
             </div>
             <div class="segmented-option">
               <input type="radio" id="hitch-gn" name="hitch-style" value="gooseneck" />
-              <label for="hitch-gn">Gooseneck Tower</label>
+              <label for="hitch-gn">Gooseneck</label>
             </div>
           </div>
         </div>
@@ -177,13 +196,13 @@
           </div>
 
           <div class="control-label" style="margin-bottom: 6px;">
-            <span>Powder Coat Color</span>
+            <span>Frame / body color</span>
           </div>
           <div class="color-picker-group">
-            <div class="color-swatch frame-color-swatch active" style="background:#27272a;" data-color="#27272a" title="Industrial Black"></div>
-            <div class="color-swatch frame-color-swatch" style="background:#475569;" data-color="#475569" title="Gunmetal Gray"></div>
-            <div class="color-swatch frame-color-swatch" style="background:#d97706;" data-color="#d97706" title="Equipment Yellow"></div>
-            <div class="color-swatch frame-color-swatch" style="background:#991b1b;" data-color="#991b1b" title="Patriot Red"></div>
+            <button type="button" class="color-swatch frame-color-swatch active" style="background:#27272a;" data-color="#27272a" title="Industrial Black" aria-label="Industrial Black" aria-pressed="false"></button>
+            <button type="button" class="color-swatch frame-color-swatch" style="background:#475569;" data-color="#475569" title="Gunmetal Gray" aria-label="Gunmetal Gray" aria-pressed="false"></button>
+            <button type="button" class="color-swatch frame-color-swatch" style="background:#d97706;" data-color="#d97706" title="Equipment Yellow" aria-label="Equipment Yellow" aria-pressed="false"></button>
+            <button type="button" class="color-swatch frame-color-swatch" style="background:#991b1b;" data-color="#991b1b" title="Patriot Red" aria-label="Patriot Red" aria-pressed="false"></button>
           </div>
         </div>
 
@@ -209,9 +228,11 @@
               <span>Ramp Length</span>
               <span id="val-ramp-length" class="control-val">6.0 ft</span>
             </div>
-            <input type="range" id="slider-ramp-length" class="config-slider" min="5.0" max="8.0" step="0.5" value="6.0" />
+            <input type="range" id="slider-ramp-length" aria-label="Ramp length in feet" class="config-slider" min="5.0" max="8.0" step="0.5" value="6.0" />
           </div>
 
+          <label class="control-label" for="slider-ramp-deployment">Ramp deployment <output id="val-ramp-deployment">100%</output></label>
+          <input id="slider-ramp-deployment" class="config-slider" type="range" min="0" max="100" step="1" value="100" />
           <!-- Ramp Position Toggle -->
           <div class="control-label" style="margin-bottom: 4px;">
             <span>Ramp Position</span>
@@ -239,8 +260,9 @@
             <span class="badge">Hydraulic</span>
           </div>
           <div class="control-label" style="margin-bottom: 4px;">
-            <span>Bed Position</span>
+            <label for="slider-dump-angle">Bed tilt <output id="val-dump-angle">0°</output></label>
           </div>
+          <input id="slider-dump-angle" class="config-slider" type="range" min="0" max="42" step="0.5" value="0" />
           <div class="segmented-control" style="margin-bottom: 10px;">
             <div class="segmented-option">
               <input type="radio" id="dump-pos-lowered" name="dump-bed-pos" value="lowered" checked />
@@ -287,12 +309,19 @@
             </div>
           </div>
 
+          <label class="control-label" for="slider-cargo-door">Rear door opening <output id="val-cargo-door">0%</output></label>
+          <input id="slider-cargo-door" class="config-slider" type="range" min="0" max="100" step="1" value="0" />
+          <div class="segmented-control">
+            <div class="segmented-option"><input type="radio" id="cargo-pos-closed" name="cargo-door-pos" value="closed" checked /><label for="cargo-pos-closed">Closed</label></div>
+            <div class="segmented-option"><input type="radio" id="cargo-pos-open" name="cargo-door-pos" value="open" /><label for="cargo-pos-open">Open</label></div>
+          </div>
           <label class="checkbox-label" style="margin-top: 4px;">
             <input type="checkbox" id="check-cargo-side-door" checked />
             <span>32" Driver-Side RV Door</span>
           </label>
         </div>
 
+        <div class="section-group"><label class="control-label" for="select-finish-sheen">Paint finish</label><select id="select-finish-sheen" class="config-select"><option value="matte">Matte</option><option value="satin" selected>Satin</option><option value="gloss">Gloss</option></select></div>
         <!-- 10. Signage & Custom Decals -->
         <div class="section-group" id="group-signage-controls">
           <div class="section-title">
@@ -301,100 +330,133 @@
           <div class="control-label" style="margin-bottom: 4px;">
             <span>Frame Badge / Side Graphic</span>
           </div>
-          <input type="text" id="input-decal-text" class="config-text" maxlength="28" value="TITAN 14K" placeholder="Custom text / brand signage..." />
+          <input type="text" id="input-decal-text" aria-label="Decal text" class="config-text" maxlength="28" value="TITAN 14K" placeholder="Custom text / brand signage..." />
           <div class="control-label" style="margin-top: 8px; margin-bottom: 4px;">
             <span>Decal Text Color</span>
           </div>
           <div class="color-picker-group">
-            <div class="color-swatch decal-color-swatch active" style="background:#f59e0b;" data-decal-color="#f59e0b" title="High-Vis Gold"></div>
-            <div class="color-swatch decal-color-swatch" style="background:#ffffff;" data-decal-color="#ffffff" title="Pure White"></div>
-            <div class="color-swatch decal-color-swatch" style="background:#ef4444;" data-decal-color="#ef4444" title="Danger Red"></div>
-            <div class="color-swatch decal-color-swatch" style="background:#09090b;" data-decal-color="#09090b" title="Matte Black"></div>
+            <button type="button" class="color-swatch decal-color-swatch active" style="background:#f59e0b;" data-decal-color="#f59e0b" title="High-Vis Gold" aria-label="High-Vis Gold" aria-pressed="false"></button>
+            <button type="button" class="color-swatch decal-color-swatch" style="background:#ffffff;" data-decal-color="#ffffff" title="Pure White" aria-label="Pure White" aria-pressed="false"></button>
+            <button type="button" class="color-swatch decal-color-swatch" style="background:#ef4444;" data-decal-color="#ef4444" title="Danger Red" aria-label="Danger Red" aria-pressed="false"></button>
+            <button type="button" class="color-swatch decal-color-swatch" style="background:#09090b;" data-decal-color="#09090b" title="Matte Black" aria-label="Matte Black" aria-pressed="false"></button>
           </div>
         </div>
 
-        <!-- 7. Model Export Action -->
+        <details class="section-group motion-settings" id="jack-settings">
+          <summary>Jack & moving parts</summary>
+          <label class="control-label" for="slider-jack-extension">Jack extension <output id="val-jack-extension">100%</output></label>
+          <input id="slider-jack-extension" class="config-slider" type="range" min="0" max="100" step="1" value="100" />
+          <p class="control-help">Movement illustrates the model. Jack movement does not change hitch height or simulate lifting a loaded trailer.</p>
+        </details>
+        <details class="section-group load-settings">
+          <summary>Will it fit?</summary>
+          <label class="control-label" for="select-load-preset">Load envelope</label>
+          <select id="select-load-preset" class="config-select"><option value="none">No load</option><option value="pallet">Pallet example</option><option value="car">Passenger car example</option><option value="equipment">Equipment example</option><option value="custom">Custom dimensions</option></select>
+          <div id="load-fields" hidden>
+            <div class="number-grid"><label>Length (ft)<input id="input-load-length" class="config-text" type="number" min="1" max="40" step="0.1" value="15" /></label><label>Width (in)<input id="input-load-width" class="config-text" type="number" min="6" max="144" value="72" /></label><label>Height (in)<input id="input-load-height" class="config-text" type="number" min="6" max="144" value="60" /></label><label>Assumed weight (lb)<input id="input-load-weight" class="config-text" type="number" min="0" max="50000" step="25" value="3500" /></label></div>
+            <label class="control-label" for="slider-load-center">Load center <output id="val-load-center">50% from front</output></label><input id="slider-load-center" class="config-slider" type="range" min="0" max="100" value="50" />
+            <label class="control-label" for="slider-load-lateral">Side offset <output id="val-load-lateral">0 in</output></label><input id="slider-load-lateral" class="config-slider" type="range" min="-72" max="72" value="0" />
+            <label class="control-label" for="slider-load-yaw">Rotation <output id="val-load-yaw">0°</output></label><input id="slider-load-yaw" class="config-slider" type="range" min="-90" max="90" value="0" />
+          </div>
+          <label class="checkbox-label"><input id="check-cargo-cutaway" type="checkbox" /> Cut away enclosure walls and roof</label>
+          <p id="load-fit-status" class="fit-status" role="status">Choose a load envelope to check modeled clearance.</p><p id="load-fit-detail" class="control-help"></p>
+          <p class="control-help">Checks a rectangular envelope at rest. Cargo V-nose space, loading paths, ground clearance, securement and real vehicle details are excluded. Negative gaps indicate overlap.</p>
+        </details>
+        <section id="load-balance-preview" class="section-group load-balance-preview" hidden><h3>Load balance preview</h3><p id="load-balance-status" class="control-help"></p><dl id="load-balance-values"><div><dt>Estimated loaded total</dt><dd id="load-balance-gross"></dd></div><div><dt>Hitch support</dt><dd id="load-balance-hitch"></dd></div><div><dt>Combined axle support</dt><dd id="load-balance-axles"></dd></div></dl><p id="load-balance-warning" class="fit-status" role="status" hidden></p><p class="control-help">Level trailer, one point mass at the envelope center, and an assumed empty hitch share. Side offset and rotation do not change this longitudinal approximation. Individual axle loads, towing dynamics and truck capacity are excluded.</p></section>
+        <details class="section-group measurement-settings">
+          <summary>Measurements</summary>
+          <label class="control-label" for="select-measurement-mode">Show in the model</label>
+          <select id="select-measurement-mode" class="config-select"><option value="deck">Deck dimensions</option><option value="overall">Overall span</option><option value="hitch">Hitch to axle group</option><option value="interior">Cargo door opening</option><option value="all">All measurements</option></select>
+          <label class="control-label" for="select-measurement-units">Units</label>
+          <select id="select-measurement-units" class="config-select"><option value="imperial">Feet & inches</option><option value="metric">Meters</option></select>
+          <p id="measurement-summary" class="control-help"></p>
+          <p class="control-help">Measurements describe this procedural model and its current pose. Cargo opening measurements apply to enclosed trailers.</p>
+        </details>
+        <details class="section-group vehicle-settings">
+          <summary>Tow vehicle & display</summary>
+          <p class="control-help">Vehicles are visual references. Alignment does not verify towing compatibility.</p>
+          <p class="control-help">Built-in pickup assumptions (inches). These dimensions also drive the maneuvering preview. Imported meshes retain their separate alignment controls.</p>
+          <div class="number-grid"><label>Wheelbase<input id="input-truck-wheelbase" class="config-text" type="number" min="110" max="220" step="0.5" value="156" /></label><label>Body width<input id="input-truck-width" class="config-text" type="number" min="60" max="110" step="0.5" value="80" /></label><label>Rear axle to bumper hitch<input id="input-truck-rear-offset" class="config-text" type="number" min="20" max="80" step="0.5" value="46.5" /></label></div>
+          <button id="btn-load-truck" class="secondary-btn">Load truck model (.glb)</button>
+          <input type="file" id="input-truck-file" accept=".glb,.gltf" hidden />
+          <button id="btn-reset-truck" class="secondary-btn" hidden>Use built-in truck</button>
+          <div id="custom-truck-controls" hidden>
+            <label class="control-label" for="truck-scale">Model scale <output id="val-truck-scale">100%</output></label>
+            <input id="truck-scale" class="config-slider" type="range" min="50" max="150" value="100" step="1" />
+            <label class="control-label" for="truck-offset">Hitch alignment <output id="val-truck-offset">0.00 m</output></label>
+            <input id="truck-offset" class="config-slider" type="range" min="-2" max="2" value="0" step="0.05" />
+            <button id="btn-flip-truck" class="secondary-btn">Reverse truck direction</button>
+          </div>
+          <label class="control-label" for="select-render-quality">Rendering quality</label>
+          <select id="select-render-quality" class="config-select"><option value="auto">Automatic</option><option value="high">High detail</option><option value="low">Battery saver</option></select>
+          <p id="quality-status" class="control-help" role="status">Automatic · balanced detail</p>
+          <p class="control-help">Automatic quality reduces detail if motion stays slow. High detail and Battery saver keep your selected level. The view stops rendering while idle.</p>
+        </details>
+        <!-- Model Export -->
+        <details class="section-group presentation-settings"><summary>Presentation & spec sheet</summary>
+          <label class="control-label" for="input-export-title">Sheet title</label><input id="input-export-title" class="config-text" type="text" maxlength="64" placeholder="Use the signage or enter a title" />
+          <label class="checkbox-label"><input id="check-export-overlays" type="checkbox" /> Include visible measurements and load</label>
+          <label class="checkbox-label"><input id="check-export-truck" type="checkbox" disabled /> Include displayed tow vehicle</label>
+          <p class="control-help">Four fitted views, specifications and an editable design copy. The downloaded sheet opens in a browser and supports Print / Save as PDF.</p><button id="btn-export-spec-sheet" class="secondary-btn">Save four-view spec sheet</button>
+        </details>
         <div class="section-group">
           <button id="btn-export-glb" class="btn-export">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
               <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>
             </svg>
-            Export 3D Model (.GLB)
+            Export 3D model (.glb)
           </button>
         </div>
       </aside>
 
-      <!-- Real-Time Read-Only Telemetry HUD -->
-      <footer class="metrics-dashboard">
-        <div class="metrics-header">
-          <div class="metrics-title">
-            <span class="pulse-dot"></span>
-            <span>Real-Time Towing Kinematics & Clearance Telemetry</span>
-          </div>
-          <div id="metric-f250-badge" class="clearance-badge safe">
-            F-250 6.5': SAFE
-          </div>
-        </div>
-
+      <section class="metrics-dashboard" aria-label="Design specifications">
+        <div class="metrics-header"><h2>Design specifications</h2><span class="estimate-badge">Illustrative estimates</span></div>
         <div class="metrics-grid">
-          <!-- Metric 1: Weight & Capacities -->
           <div class="metric-card">
-            <div class="metric-label">Capacities (LBS)</div>
-            <div class="metric-value-large">
-              <span id="metric-payload">10,160</span>
-              <span class="metric-unit">LBS CAP</span>
-            </div>
-            <div class="metric-sub">
-              <span>GVWR: <strong id="metric-gvwr">14,000</strong></span>
-              <span>Curb: <strong id="metric-curb-weight">3,840</strong></span>
-            </div>
+            <div class="metric-label">Estimated payload</div>
+            <div class="metric-value-large"><span id="metric-payload">—</span><span class="metric-unit">lb</span></div>
+            <div class="metric-sub"><span>Class rating <strong id="metric-gvwr">—</strong> lb</span><span>Est. empty <strong id="metric-curb-weight">—</strong> lb</span></div>
           </div>
-
-          <!-- Metric 2: 60/40 Axle Placement & Tongue Ratio -->
           <div class="metric-card">
-            <div class="metric-label">Axle Centroid (60/40 Rule)</div>
-            <div class="metric-value-large">
-              <span id="metric-axle-centroid">12.0 ft (60%)</span>
-            </div>
-            <div class="metric-sub">
-              <span>Tongue: <strong id="metric-tongue-pct">12.5%</strong> (<span id="metric-tongue-weight">480</span> lbs)</span>
-              <span id="metric-axle-spread" style="font-size:0.68rem;">Tandem</span>
-            </div>
+            <div class="metric-label">Axle group from front</div>
+            <div class="metric-value-large"><span id="metric-axle-centroid">—</span></div>
+            <div class="metric-sub"><span id="metric-axle-spread">—</span><span>Empty hitch estimate <strong id="metric-tongue-weight">—</strong> lb (<span id="metric-tongue-pct">—</span> assumed)</span></div>
           </div>
-
-          <!-- Metric 3: Ramp Approach & Breakover Angles -->
           <div class="metric-card">
-            <div class="metric-label">Approach & Breakover</div>
-            <div class="metric-value-large">
-              <span id="metric-ramp-angle">14.8°</span>
-              <span class="metric-unit">APPROACH</span>
-            </div>
-            <div class="metric-sub">
-              <span>Breakover: <strong id="metric-breakover-angle">165.2°</strong></span>
-              <span>Max Wheelbase: <strong id="metric-wheelbase-limit">62"</strong></span>
-            </div>
+            <div class="metric-label">Loading geometry</div>
+            <div class="metric-value-large"><span id="metric-ramp-angle">—</span><span class="metric-unit" id="metric-ramp-caption">ramp angle</span></div>
+            <div class="metric-sub"><span>Deck height <strong id="metric-deck-height">—</strong></span><span id="metric-breakover-row">Ramp-to-deck angle <strong id="metric-breakover-angle">—</strong></span></div>
           </div>
-
-          <!-- Metric 4: Tow Vehicle Clearances -->
           <div class="metric-card">
-            <div class="metric-label">Tow Vehicle Coupling</div>
-            <div class="metric-value-large">
-              <span id="metric-coupler-height">19.0"</span>
-              <span class="metric-unit">COUPLER HT</span>
-            </div>
-            <div class="metric-sub">
-              <span>Bed Rail Clr: <strong id="metric-f250-bed-rail">+8.0"</strong></span>
-              <span>Cab Margin: <strong id="metric-f250-cab-margin">+7.5"</strong></span>
-            </div>
+            <div class="metric-label">Modeled coupler height</div>
+            <div class="metric-value-large"><span id="metric-coupler-height">—</span></div>
+            <div class="metric-sub"><span id="metric-hitch-type">—</span><span>Vehicle clearance is not verified.</span></div>
           </div>
         </div>
-      </footer>
+        <p id="weight-warning" class="weight-warning" hidden>The estimated empty weight exceeds this class rating. Choose a higher weight class or a smaller design.</p>
+        <details class="estimate-details"><summary>How these estimates work</summary><p>Weights use approximate material and component allowances. Axles sit at 60% of deck length. The empty hitch estimate assumes 12.5% for bumper pull or 22% for gooseneck. The separate load-balance preview adds a point mass on a level trailer. Vehicle capacity, turning collision, individual axle loads and structural strength are not calculated. Use manufacturer ratings and actual measurements for real equipment. Exported models are visualization meshes, not fabrication plans.</p></details>
+      </section>
 
       <!-- Toast Container for Notifications -->
-      <div id="toast-container" class="toast-container"></div>
+      <div id="toast-container" class="toast-container" role="status" aria-live="polite"></div>
+      <dialog id="share-dialog"><form method="dialog"><h2>Share this design</h2><p>Copy this address to reopen the same configuration. Custom truck files stay on this device.</p><label for="share-url">Design address</label><input id="share-url" type="text" readonly /><button class="secondary-btn">Done</button></form></dialog>
     </div>
 
     <!-- Application Bootstrap -->
+    <dialog id="design-name-dialog" aria-labelledby="design-name-heading">
+      <form id="design-name-form"><h2 id="design-name-heading">Name your design</h2><p>Stored on this browser. Save a JSON copy to keep it elsewhere.</p>
+        <label for="design-name">Design name</label><input id="design-name" type="text" maxlength="40" required />
+        <div class="dialog-actions"><button id="btn-cancel-save-local" type="button" class="text-btn">Cancel</button><button id="btn-confirm-save-local" class="secondary-btn" type="submit">Save design</button></div>
+      </form>
+    </dialog>
+    <dialog id="comparison-dialog" class="comparison-dialog" aria-labelledby="comparison-heading">
+      <h2 id="comparison-heading">Compare designs</h2><p id="comparison-status" role="status"></p>
+      <div class="comparison-images"><figure><img id="comparison-reference-image" alt="Pinned reference trailer" /><figcaption>Pinned reference</figcaption></figure><figure><img id="comparison-current-image" alt="Current trailer design" /><figcaption>Current design</figcaption></figure></div>
+      <label class="checkbox-label"><input id="check-changed-only" type="checkbox" /> Show changed specifications only</label>
+      <div class="comparison-table"><table><thead><tr><th>Specification</th><th>Reference</th><th>Current</th><th>Change</th></tr></thead><tbody id="comparison-rows"></tbody></table></div>
+      <div class="dialog-actions"><button id="btn-pin-comparison" class="secondary-btn">Pin current as reference</button><button id="btn-export-comparison" class="secondary-btn">Save comparison</button><button id="btn-close-comparison" class="text-btn">Close</button></div>
+    </dialog>
+    <dialog id="sheet-progress-dialog" aria-labelledby="sheet-progress-heading"><h2 id="sheet-progress-heading">Preparing your sheet</h2><p id="sheet-progress-status" role="status">Preparing views…</p><button id="btn-cancel-sheet" class="text-btn">Cancel</button></dialog>
     <script type="module" src="/src/main.js"></script>
   </body>
 </html>

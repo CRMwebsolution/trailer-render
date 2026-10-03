@@ -1,6 +1,8 @@
+import { normalizeConfig } from './config.js';
+
 /**
  * PhysicsMetrics.js
- * Real-world towing calculations, clearance analysis, and weight distribution.
+ * Illustrative geometry and weight estimates. These do not validate a real towing setup.
  */
 
 export const PAYLOAD_CLASSES = {
@@ -129,12 +131,12 @@ export class PhysicsMetrics {
       cargoRearDoor = 'ramp',      // 'ramp' | 'barn'
       cargoSideDoor = true,
       decalText = ''
-    } = config;
+    } = normalizeConfig(config);
 
     const pClass = PAYLOAD_CLASSES[payloadClass] || PAYLOAD_CLASSES['14K'];
 
     // Determine deckOver flag
-    const isDeckOver = fenderStyle === 'deck_over' || trailerWidthIn >= 102;
+    const isDeckOver = pClass.deckOver || fenderStyle === 'deck_over' || trailerWidthIn >= 102;
     const effectiveWidthIn = isDeckOver ? 102.0 : Number(trailerWidthIn || 83.0);
     const bedLengthIn = bedLengthFt * 12;
     const bedLengthM = bedLengthFt * 0.3048;
@@ -177,7 +179,7 @@ export class PhysicsMetrics {
     // Hitch structure weight
     const hitchWeight = hitchStyle === 'bumper_pull' ? (pClass.linearWeightLbsPerFt * 4.5 + 120) : (pClass.linearWeightLbsPerFt * 9.0 + 550);
     // Ramp weight
-    const rampWeight = rampStyle === 'slide_in' ? (rampLengthFt * 28) : 260;
+    const rampWeight = trailerType === 'flatbed' ? (rampStyle === 'slide_in' ? rampLengthFt * 28 : 260) : 0;
     // Dump box & hydraulics bonus weight if dump trailer
     const dumpBonusWeight = trailerType === 'dump' ? (bedLengthFt * 65 + 680) : 0;
     // Cargo enclosure bonus weight if cargo trailer
@@ -201,15 +203,9 @@ export class PhysicsMetrics {
     const gooseneckSwingRadiusIn = 35.5; // Radius to outermost front corner
     const f250CabClearanceMarginIn = FORD_F250_65_SPECS.cabToBallDistanceIn - gooseneckSwingRadiusIn;
 
-    let f250ClearanceStatus = 'SAFE';
-    let f250StatusColor = '#22c55e'; // Green
-    if (f250CabClearanceMarginIn < 0) {
-      f250ClearanceStatus = 'COLLISION RISK';
-      f250StatusColor = '#ef4444'; // Red
-    } else if (f250CabClearanceMarginIn < 4.0) {
-      f250ClearanceStatus = 'TIGHT CLEARANCE';
-      f250StatusColor = '#f59e0b'; // Amber
-    }
+    // Fixed reference dimensions, not a collision or towing-suitability calculation.
+    const f250ClearanceStatus = 'NOT VERIFIED';
+    const f250StatusColor = '#94a3b8';
 
     // 4. RAMP APPROACH & BREAKOVER ANGLES
     const hasDovetail = (trailerType === 'flatbed' && bedLengthFt >= 16);
@@ -224,7 +220,7 @@ export class PhysicsMetrics {
     const rampAngleRad = Math.asin(rampRatio);
     const rampAngleDeg = rampAngleRad * (180 / Math.PI);
     const breakoverApexAngleDeg = 180.0 - (rampAngleDeg - dovetailAngleDeg);
-    const maxWheelbaseIn = (2 * 4.0) / Math.tan((rampAngleDeg * Math.PI) / 360);
+    const hasLoadingRamp = trailerType === 'flatbed';
 
     return {
       // Identity & Ratings
@@ -261,6 +257,7 @@ export class PhysicsMetrics {
       tireRadiusM: pClass.tireRadiusIn * 0.0254,
       axleCentroidFromFrontIn,
       axleCentroidFromFrontFt,
+      axleCentroidFromFrontM,
       axleCentroidPct: 60.0,
       axlePositionsIn,
       axlePositionsM: axlePositionsIn.map(pos => pos * 0.0254),
@@ -285,7 +282,9 @@ export class PhysicsMetrics {
       rearDeckLipHeightIn,
       rampAngleDeg: Number(rampAngleDeg.toFixed(1)),
       breakoverApexAngleDeg: Number(breakoverApexAngleDeg.toFixed(1)),
-      maxWheelbaseIn: Math.round(maxWheelbaseIn),
+      hasLoadingRamp,
+      isEstimate: true,
+      weightExceedsRating: curbWeightLbs > pClass.gvwrLbs,
 
       // Dump Trailer Specifics
       dumpBedPosition,

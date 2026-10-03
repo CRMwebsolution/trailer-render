@@ -4,6 +4,7 @@
  * Encapsulates scene lifecycle, running gear, suspension kinematics, wheels, fenders, lighting, and memory cleanup.
  */
 import * as THREE from 'three';
+import { buildTrailerHardware } from './hardware.js';
 
 export class BaseTrailer {
   constructor(scene, materialFactory) {
@@ -46,6 +47,7 @@ export class BaseTrailer {
 
     this.currentConfig = null;
     this.currentMetrics = null;
+    for (const [group, id] of [[this.chassisGroup, 'frame'], [this.runningGearGroup, 'wheels'], [this.deckGroup, 'deck'], [this.hitchGroup, 'hitch'], [this.rampGroup, 'ramps'], [this.accessoriesGroup, 'lighting']]) group.userData.partId = id;
 
     this.scene.add(this.rootGroup);
   }
@@ -70,9 +72,11 @@ export class BaseTrailer {
     this.buildRunningGear(config, metrics);
     this.buildDeck(config, metrics);
     this.buildHitch(config, metrics);
+    this.buildJack(config, metrics);
     this.buildRamps(config, metrics);
     this.buildFenders(config, metrics);
     this.buildLightingAndSafety(config, metrics);
+    buildTrailerHardware(this, config, metrics);
   }
 
   /**
@@ -138,15 +142,15 @@ export class BaseTrailer {
         // 3. Wheel Assemblies
         const isDual = (payloadClass === '20K' || payloadClass === '25K');
         if (isDual) {
-          const wheelInner = this.createWheelAssembly(tireRadiusM, rimMaterial, tireMaterial, hardwareMaterial);
+          const wheelInner = this.createWheelAssembly(tireRadiusM, rimMaterial, tireMaterial, hardwareMaterial, metrics);
           wheelInner.position.set(axleXM, axleElevationY, springZ + side * 0.14);
           axleSubGroup.add(wheelInner);
 
-          const wheelOuter = this.createWheelAssembly(tireRadiusM, rimMaterial, tireMaterial, hardwareMaterial);
+          const wheelOuter = this.createWheelAssembly(tireRadiusM, rimMaterial, tireMaterial, hardwareMaterial, metrics);
           wheelOuter.position.set(axleXM, axleElevationY, springZ + side * 0.36);
           axleSubGroup.add(wheelOuter);
         } else {
-          const wheel = this.createWheelAssembly(tireRadiusM, rimMaterial, tireMaterial, hardwareMaterial);
+          const wheel = this.createWheelAssembly(tireRadiusM, rimMaterial, tireMaterial, hardwareMaterial, metrics);
           wheel.position.set(axleXM, axleElevationY, springZ + side * 0.18);
           axleSubGroup.add(wheel);
         }
@@ -448,39 +452,47 @@ export class BaseTrailer {
     }
   }
 
-  createWheelAssembly(tireRadiusM, rimMat, tireMat, hardwareMat) {
-    const group = new THREE.Group();
-    const tireWidthM = 0.18;
-    const rimRadiusM = tireRadiusM * 0.55;
-
-    const tireGeo = new THREE.CylinderGeometry(tireRadiusM, tireRadiusM, tireWidthM, 24);
-    tireGeo.rotateX(Math.PI / 2);
-    const tireMesh = new THREE.Mesh(tireGeo, tireMat);
-    tireMesh.castShadow = true;
-    group.add(tireMesh);
-
-    const rimGeo = new THREE.CylinderGeometry(rimRadiusM, rimRadiusM, tireWidthM + 0.005, 24);
-    rimGeo.rotateX(Math.PI / 2);
-    const rimMesh = new THREE.Mesh(rimGeo, rimMat);
-    rimMesh.castShadow = true;
-    group.add(rimMesh);
-
-    const hubCapGeo = new THREE.CylinderGeometry(0.045, 0.045, tireWidthM + 0.02, 16);
-    hubCapGeo.rotateX(Math.PI / 2);
-    const hubCapMesh = new THREE.Mesh(hubCapGeo, hardwareMat);
-    group.add(hubCapMesh);
-
-    const lugCount = 6;
-    const lugCircleR = 0.065;
-    for (let l = 0; l < lugCount; l++) {
-      const angle = (l / lugCount) * Math.PI * 2;
-      const lugGeo = new THREE.CylinderGeometry(0.009, 0.009, 0.015, 8);
-      lugGeo.rotateX(Math.PI / 2);
-      const lugMesh = new THREE.Mesh(lugGeo, hardwareMat);
-      lugMesh.position.set(Math.cos(angle) * lugCircleR, Math.sin(angle) * lugCircleR, (tireWidthM / 2) + 0.008);
-      group.add(lugMesh);
+  createWheelAssembly(radius, rimMat, tireMat, hardwareMat, metrics) {
+    const group = new THREE.Group(); group.name = 'Wheel_Assembly';
+    const width = .205;
+    const rimRadius = metrics.payloadClass === '25K' ? .222 : metrics.payloadClass === 'single' || metrics.payloadClass === '10K' ? .1905 : .2032;
+    const profile = [
+      new THREE.Vector2(rimRadius, -width * .42), new THREE.Vector2(radius * .76, -width * .5),
+      new THREE.Vector2(radius * .94, -width * .44), new THREE.Vector2(radius, -width * .28),
+      new THREE.Vector2(radius, width * .28), new THREE.Vector2(radius * .94, width * .44),
+      new THREE.Vector2(radius * .76, width * .5), new THREE.Vector2(rimRadius, width * .42),
+      new THREE.Vector2(rimRadius, -width * .42)
+    ];
+    const tireGeo = new THREE.LatheGeometry(profile, 40); tireGeo.rotateX(Math.PI / 2);
+    const tire = new THREE.Mesh(tireGeo, tireMat); tire.castShadow = true; group.add(tire);
+    const tread = new THREE.InstancedMesh(new THREE.BoxGeometry(.038, .009, .043), tireMat, 144);
+    const matrix = new THREE.Matrix4(), rotation = new THREE.Quaternion();
+    for (let row = 0; row < 3; row++) {
+      for (let index = 0; index < 48; index++) {
+        const angle = (index + row * .35) / 48 * Math.PI * 2;
+        rotation.setFromAxisAngle(new THREE.Vector3(0, 0, 1), angle + Math.PI / 2);
+        matrix.compose(new THREE.Vector3(Math.cos(angle) * radius, Math.sin(angle) * radius, (row - 1) * .055), rotation, new THREE.Vector3(1, 1, 1));
+        tread.setMatrixAt(row * 48 + index, matrix);
+      }
     }
-
+    tread.castShadow = true; group.add(tread);
+    const rimGeo = new THREE.CylinderGeometry(rimRadius * .91, rimRadius * .91, width * .74, 32); rimGeo.rotateX(Math.PI / 2);
+    const rim = new THREE.Mesh(rimGeo, rimMat); rim.castShadow = true; group.add(rim);
+    for (const side of [-1, 1]) {
+      const bead = new THREE.Mesh(new THREE.TorusGeometry(rimRadius * .95, .012, 8, 40), rimMat);
+      bead.position.z = side * width * .42; group.add(bead);
+      const hubGeo = new THREE.CylinderGeometry(.05, .06, .045, 20); hubGeo.rotateX(Math.PI / 2);
+      const hub = new THREE.Mesh(hubGeo, hardwareMat); hub.position.z = side * width * .42; group.add(hub);
+      const count = Number.parseInt(metrics.lugPattern, 10) || 8;
+      const lugGeo = new THREE.CylinderGeometry(.008, .008, .018, 6); lugGeo.rotateX(Math.PI / 2);
+      const lugs = new THREE.InstancedMesh(lugGeo, hardwareMat, count);
+      for (let index = 0; index < count; index++) {
+        const angle = index / count * Math.PI * 2;
+        matrix.makeTranslation(Math.cos(angle) * .08, Math.sin(angle) * .08, side * (width * .42 + .012));
+        lugs.setMatrixAt(index, matrix);
+      }
+      group.add(lugs);
+    }
     return group;
   }
 
@@ -504,17 +516,51 @@ export class BaseTrailer {
     });
   }
 
-  clearGroup(group) {
-    while (group.children.length > 0) {
-      const child = group.children[0];
-      group.remove(child);
-      if (child.geometry) {
-        child.geometry.dispose();
-      }
-      if (child.children && child.children.length > 0) {
-        this.clearGroup(child);
-      }
+  buildJack(config, metrics) {
+    const steel = this.materials.getMaterial('frame_steel', { color: config.finishColor });
+    const hardware = this.materials.getMaterial('zinc_hardware');
+    this.jacks = [];
+    const gooseneck = config.hitchStyle === 'gooseneck';
+    for (const z of gooseneck ? [-metrics.bedWidthM * .32, metrics.bedWidthM * .32] : [0]) {
+      const mountY = gooseneck ? metrics.deckHeightM : metrics.couplerHeightIn * .0254;
+      const group = new THREE.Group(); group.name = 'Tongue_Jack'; group.userData.partId = 'jack';
+      group.position.set(gooseneck ? -.55 : -1.13, 0, z);
+      const body = new THREE.Mesh(new THREE.CylinderGeometry(.045, .045, .36, 20), steel);
+      body.position.y = mountY + .12; body.castShadow = true; group.add(body);
+      const mount = new THREE.Mesh(new THREE.BoxGeometry(.12, .08, .12), hardware);
+      mount.position.y = mountY + .06; group.add(mount);
+      const stem = new THREE.Mesh(new THREE.CylinderGeometry(.032, .032, 1, 16), hardware);
+      stem.name = 'Jack_Extending_Leg'; stem.castShadow = true; group.add(stem);
+      const foot = new THREE.Mesh(new THREE.CylinderGeometry(.09, .09, .025, 20), hardware);
+      foot.name = 'Jack_Foot'; group.add(foot);
+      const crank = new THREE.Mesh(new THREE.BoxGeometry(.18, .018, .018), hardware);
+      crank.position.set(.07, mountY + .315, 0); group.add(crank);
+      const grip = new THREE.Mesh(new THREE.CylinderGeometry(.015, .015, .075, 12), this.materials.getMaterial('black_iron'));
+      grip.position.set(.15, mountY + .28, 0); group.add(grip);
+      this.hitchGroup.add(group); this.jacks.push({ stem, foot, mountY });
     }
+    this.setJackPose(config.jackExtensionPct / 100);
+  }
+  setJackPose(value) {
+    for (const { stem, foot, mountY } of this.jacks || []) {
+      const footY = THREE.MathUtils.lerp(mountY - .08, .015, value);
+      const length = mountY + .08 - footY;
+      stem.scale.y = length; stem.position.y = footY + length / 2; foot.position.y = footY;
+    }
+  }
+
+  clearGroup(group) {
+    const geometries = new Set(), owned = new Set();
+    group.traverse(child => {
+      if (child.geometry) geometries.add(child.geometry);
+      for (const material of Array.isArray(child.material) ? child.material : [child.material]) {
+        if (material?.userData.owned) owned.add(material);
+      }
+      if (child.isInstancedMesh) child.dispose();
+    });
+    geometries.forEach(geometry => geometry.dispose());
+    owned.forEach(material => material.dispose());
+    group.clear();
   }
 
   dispose() {

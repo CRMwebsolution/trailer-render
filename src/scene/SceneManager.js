@@ -1,150 +1,119 @@
-/**
- * SceneManager.js
- * High-performance Three.js WebGL scene orchestrator with soft contact shadows,
- * studio three-point lighting, procedural HDR reflections, background modes, and tow truck integration.
- */
 import * as THREE from 'three';
+import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import { CameraController } from './CameraController.js';
 import { MaterialFactory } from './MaterialFactory.js';
 import { DimensionOverlay } from './DimensionOverlay.js';
 import { TowTruck } from './TowTruck.js';
 import { trailerFactory } from '../trailers/TrailerFactory.js';
+import { decalFactory } from './DecalFactory.js';
+import { measurementValues, formatDistance } from '../core/modelGeometry.js';
+import { PartInspector } from './PartInspector.js';
+import { CargoEnvelope } from './CargoEnvelope.js';
+import { AdaptiveQuality, initialQualityTier, qualitySettings } from '../core/AdaptiveQuality.js';
+
+const GEOMETRY_KEYS = ['trailerType', 'bedLengthFt', 'trailerWidthIn', 'fenderStyle',
+  'payloadClass', 'hitchStyle', 'deckMaterial', 'finishColor', 'finishSheen', 'rampStyle', 'rampLengthFt',
+  'dumpDoorStyle', 'cargoRearDoor', 'cargoSideDoor',
+  'decalText', 'decalColor'];
+const DIMENSION_KEYS = ['bedLengthFt', 'trailerWidthIn', 'payloadClass', 'fenderStyle', 'showDimensions', 'measurementMode', 'measurementUnits', 'hitchStyle', 'trailerType'];
 
 export class SceneManager {
-  constructor(canvasElement) {
-    this.canvas = canvasElement;
-    this.width = canvasElement.clientWidth || window.innerWidth;
-    this.height = canvasElement.clientHeight || window.innerHeight;
-
-    // 1. Scene
+  constructor(canvas) {
+    this.canvas = canvas;
+    this.container = canvas.parentElement;
     this.scene = new THREE.Scene();
-    this.scene.background = new THREE.Color('#0c0d10');
-    this.scene.fog = new THREE.FogExp2('#0c0d10', 0.025);
-
-    // 2. Camera
-    this.camera = new THREE.PerspectiveCamera(42, this.width / this.height, 0.1, 100);
-    this.camera.position.set(-6.0, 4.5, 9.0);
-
-    // 3. Renderer
-    this.renderer = new THREE.WebGLRenderer({
-      canvas: this.canvas,
-      antialias: true,
-      powerPreference: 'high-performance'
-    });
-    this.renderer.setSize(this.width, this.height);
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2.0));
-    this.renderer.shadowMap.enabled = true;
-    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-    this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 1.1;
+    this.scene.background = new THREE.Color('#eef0f3');
+    this.camera = new THREE.PerspectiveCamera(42, 1, .05, 150);
+    this.camera.position.set(-4, 4, 8);
+    this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'default' });
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
-
-    // 4. Subsystems
+    this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    this.renderer.toneMappingExposure = 1.25;
+    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    this.renderer.shadowMap.autoUpdate = false;
+    this.running = true;
+    this.frame = 0;
+    this.render = this.render.bind(this);
+    this.requestRender = this.requestRender.bind(this);
+    this.cameraController = new CameraController(this.camera, canvas, this.requestRender);
     this.materials = new MaterialFactory();
-    this.cameraController = new CameraController(this.camera, this.renderer.domElement);
     this.dimensionOverlay = new DimensionOverlay(this.scene);
+    this.cargoEnvelope = new CargoEnvelope(this.scene);
+    this.partInspector = new PartInspector(this.scene, canvas, () => this.activeTrailer?.rootGroup, detail => {
+      canvas.dispatchEvent(new CustomEvent('part-selected', { detail })); this.requestRender();
+    });
+    this.partInspector.setCamera(this.camera);
     this.towTruck = new TowTruck(this.materials);
     this.scene.add(this.towTruck.group);
-
-    // 5. Environment & Ground
     this.setupLighting();
     this.setupEnvironment();
     this.setupGround();
     this.setupShowroom();
-
-    // 6. Active Trailer Instance
-    this.activeTrailer = null;
-    this.currentType = null;
-    this.currentEnvMode = 'black';
-
-    // 7. Event Handlers & RAF
-    this.onResize = this.handleResize.bind(this);
-    window.addEventListener('resize', this.onResize);
-
-    this.isRunning = true;
-    this.animate = this.animate.bind(this);
-    requestAnimationFrame(this.animate);
+    this.qualityController = new AdaptiveQuality();
+    this.applyQuality('auto');
+    this.resizeObserver = new ResizeObserver(() => this.handleResize());
+    this.resizeObserver.observe(this.container);
+    this.events = new AbortController();
+    document.addEventListener('visibilitychange', () => {
+      this.lastFrameTime = 0;
+      if (!document.hidden) this.requestRender();
+    }, { signal: this.events.signal });
+    canvas.addEventListener('webglcontextlost', event => {
+      event.preventDefault();
+      this.contextLost = true;
+      const status = document.getElementById('viewport-status');
+      status.hidden = false;
+      status.textContent = 'The 3D view paused while the graphics context recovers.';
+    }, { signal: this.events.signal });
+    canvas.addEventListener('webglcontextrestored', () => {
+      this.contextLost = false;
+      document.getElementById('viewport-status').hidden = true;
+      this.markShadowsDirty(); this.requestRender();
+    }, { signal: this.events.signal });
+    this.handleResize();
   }
 
   setupLighting() {
-    // Ambient / Hemisphere Fill
-    this.hemiLight = new THREE.HemisphereLight(0xe2e8f0, 0x18181b, 0.7);
-    this.hemiLight.position.set(0, 20, 0);
+    this.hemiLight = new THREE.HemisphereLight(0xf1f5fb, 0xa4aab3, 2.1);
     this.scene.add(this.hemiLight);
-
-    // Main Studio Sun / Key Light with Soft Shadows
-    this.dirLight = new THREE.DirectionalLight(0xfff7ed, 2.2);
-    this.dirLight.position.set(12, 16, 10);
+    this.dirLight = new THREE.DirectionalLight(0xfff8ee, 3.8);
+    this.dirLight.position.set(-3, 12, 8);
     this.dirLight.castShadow = true;
-    this.dirLight.shadow.mapSize.width = 2048;
-    this.dirLight.shadow.mapSize.height = 2048;
-    this.dirLight.shadow.camera.near = 1.0;
-    this.dirLight.shadow.camera.far = 45;
-    this.dirLight.shadow.camera.left = -16;
-    this.dirLight.shadow.camera.right = 16;
-    this.dirLight.shadow.camera.top = 10;
-    this.dirLight.shadow.camera.bottom = -4;
-    this.dirLight.shadow.bias = -0.0003;
-    this.dirLight.shadow.radius = 2.5;
-    this.scene.add(this.dirLight);
-
-    // Soft Rim / Fill Light from back-left
-    this.rimLight = new THREE.DirectionalLight(0x93c5fd, 0.9);
-    this.rimLight.position.set(-14, 10, -12);
+    Object.assign(this.dirLight.shadow.camera, { near: .5, far: 60, left: -18, right: 18, top: 18, bottom: -18 });
+    this.dirLight.shadow.mapSize.set(2048, 2048);
+    this.dirLight.shadow.bias = -.00025;
+    this.dirLight.shadow.normalBias = .025;
+    this.dirLight.shadow.radius = 3;
+    this.scene.add(this.dirLight, this.dirLight.target);
+    this.rimLight = new THREE.DirectionalLight(0xc5d9f7, 2);
+    this.rimLight.position.set(9, 5, -7);
     this.scene.add(this.rimLight);
-
-    // Secondary Underbody Fill
-    this.underFill = new THREE.DirectionalLight(0xffffff, 0.4);
-    this.underFill.position.set(0, -6, 4);
+    this.underFill = new THREE.DirectionalLight(0xffffff, .6);
+    this.underFill.position.set(-3, 2, 10);
     this.scene.add(this.underFill);
   }
 
   setupEnvironment() {
-    const pmremGen = new THREE.PMREMGenerator(this.renderer);
-    pmremGen.compileEquirectangularShader();
-
-    const envScene = new THREE.Scene();
-    envScene.background = new THREE.Color('#1e2229');
-
-    const panelGeo = new THREE.PlaneGeometry(12, 8);
-    const panelMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
-
-    const topPanel = new THREE.Mesh(panelGeo, panelMat);
-    topPanel.position.set(0, 10, 0);
-    topPanel.rotation.x = Math.PI / 2;
-    envScene.add(topPanel);
-
-    const sidePanel = new THREE.Mesh(panelGeo, panelMat);
-    sidePanel.position.set(10, 5, 5);
-    sidePanel.rotation.y = -Math.PI / 3;
-    envScene.add(sidePanel);
-
-    const renderTarget = pmremGen.fromScene(envScene);
-    this.scene.environment = renderTarget.texture;
-    pmremGen.dispose();
+    const generator = new THREE.PMREMGenerator(this.renderer);
+    const room = new RoomEnvironment();
+    this.environmentTarget = generator.fromScene(room, .04);
+    this.scene.environment = this.environmentTarget.texture;
+    this.scene.environmentIntensity = .85;
+    room.dispose(); generator.dispose();
   }
 
   setupGround() {
-    // 1. Soft Shadow Receiver Plane
-    const shadowPlaneGeo = new THREE.PlaneGeometry(80, 80);
-    shadowPlaneGeo.rotateX(-Math.PI / 2);
-    this.shadowMat = new THREE.ShadowMaterial({ opacity: 0.45 });
-    this.shadowPlane = new THREE.Mesh(shadowPlaneGeo, this.shadowMat);
-    this.shadowPlane.position.y = 0.0;
-    this.shadowPlane.receiveShadow = true;
-    this.scene.add(this.shadowPlane);
-
-    // 2. Subtle Engineering Grid
-    this.grid = new THREE.GridHelper(60, 60, 0xf59e0b, 0x27272a);
-    this.grid.position.y = -0.001;
+    this.groundMat = new THREE.MeshStandardMaterial({ color: '#e4e7eb', roughness: .92, metalness: 0 });
+    this.ground = new THREE.Mesh(new THREE.PlaneGeometry(120, 120), this.groundMat);
+    this.ground.rotation.x = -Math.PI / 2;
+    this.ground.position.y = -.015;
+    this.ground.receiveShadow = true;
+    this.scene.add(this.ground);
+    this.grid = new THREE.GridHelper(40, 40, 0x4e5e72, 0x344254);
+    this.grid.position.y = -.01;
     this.scene.add(this.grid);
   }
 
-  /**
-   * Premium Automotive Showroom Environment:
-   * Features a polished display turntable, overhead softbox light banks,
-   * halo ring perimeter, and studio spotlights.
-   */
   setupShowroom() {
     this.showroomGroup = new THREE.Group();
     this.showroomGroup.name = 'Showroom_Stage';
@@ -201,6 +170,7 @@ export class SceneManager {
     const centerSoftboxGeo = new THREE.BoxGeometry(16, 0.15, 3.5);
     const centerBank = new THREE.Mesh(centerSoftboxGeo, softboxMaterials);
     centerBank.position.set(2.5, 8.5, 0);
+    centerBank.visible = false;
     this.showroomGroup.add(centerBank);
 
     // Left and Right Angled Accent Softboxes
@@ -208,11 +178,13 @@ export class SceneManager {
     const leftBank = new THREE.Mesh(sideSoftboxGeo, softboxMaterials);
     leftBank.position.set(2.5, 7.8, 5.2);
     leftBank.rotation.x = -0.35;
+    leftBank.visible = false;
     this.showroomGroup.add(leftBank);
 
     const rightBank = new THREE.Mesh(sideSoftboxGeo, softboxMaterials);
     rightBank.position.set(2.5, 7.8, -5.2);
     rightBank.rotation.x = 0.35;
+    rightBank.visible = false;
     this.showroomGroup.add(rightBank);
 
     // 5. Dedicated Showroom Key Spotlight
@@ -244,114 +216,270 @@ export class SceneManager {
     this.scene.add(this.showroomGroup);
   }
 
-  /**
-   * Switches studio background & ground floor environment.
-   * @param {string} mode - 'black' | 'white' | 'showroom'
-   */
-  setBackgroundMode(mode = 'black') {
+  setBackgroundMode(mode) {
     if (this.currentEnvMode === mode) return;
     this.currentEnvMode = mode;
-
-    switch (mode) {
-      case 'white':
-        if (this.showroomGroup) this.showroomGroup.visible = false;
-        this.scene.background.set('#f8fafc');
-        this.scene.fog.color.set('#f8fafc');
-        this.scene.fog.density = 0.015;
-        this.shadowMat.opacity = 0.22;
-        this.grid.visible = false;
-        this.dirLight.intensity = 2.4;
-        this.hemiLight.color.set(0xffffff);
-        this.hemiLight.groundColor.set(0xd1d5db);
-        break;
-
-      case 'showroom':
-        if (this.showroomGroup) this.showroomGroup.visible = true;
-        this.scene.background.set('#141b26');
-        this.scene.fog.color.set('#141b26');
-        this.scene.fog.density = 0.014;
-        this.shadowMat.opacity = 0.60;
-        this.grid.visible = false;
-        this.dirLight.intensity = 2.6;
-        this.hemiLight.color.set(0xffedd5); // Warm overhead showroom tint
-        this.hemiLight.groundColor.set(0x0f172a);
-        break;
-
-      case 'black':
-      default:
-        if (this.showroomGroup) this.showroomGroup.visible = false;
-        this.scene.background.set('#0c0d10');
-        this.scene.fog.color.set('#0c0d10');
-        this.scene.fog.density = 0.025;
-        this.shadowMat.opacity = 0.45;
-        this.grid.visible = true;
-        this.dirLight.intensity = 2.2;
-        this.hemiLight.color.set(0xe2e8f0);
-        this.hemiLight.groundColor.set(0x18181b);
-        break;
-    }
+    this.container.dataset.environment = mode;
+    const studio = mode === 'white';
+    this.scene.background.set(studio ? '#eef0f3' : mode === 'showroom' ? '#1b2635' : '#19212d');
+    this.groundMat.color.set(studio ? '#e4e7eb' : '#1b2635');
+    this.ground.visible = mode !== 'showroom';
+    this.grid.visible = mode === 'black';
+    this.showroomGroup.visible = mode === 'showroom';
+    this.hemiLight.intensity = studio ? 2.1 : 1.6;
+    this.dirLight.intensity = studio ? 3.8 : 4.4;
+    this.rimLight.intensity = studio ? 2 : 2.6;
+    this.scene.environmentIntensity = studio ? .85 : 1.05;
+    this.markShadowsDirty();
   }
 
-  /**
-   * Updates or switches the trailer model according to state and metrics.
-   */
-  updateTrailer(state, metrics) {
-    const type = state.trailerType || 'flatbed';
+  applyQuality(quality, preserveTier = false) {
+    this.qualityMode = quality;
+    if (!preserveTier) this.qualityController.reset(initialQualityTier({ deviceMemory: navigator.deviceMemory, hardwareConcurrency: navigator.hardwareConcurrency, saveData: navigator.connection?.saveData }));
+    const smallScreen = window.matchMedia('(max-width: 820px)').matches;
+    const settings = qualitySettings(quality, this.qualityController.tier, smallScreen);
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, settings.pixelCap));
+    this.renderer.shadowMap.enabled = settings.shadowSize > 0;
+    for (const light of [this.dirLight, this.showroomSpot]) {
+      const size = settings.shadowSize || 1024;
+      if (light.shadow.mapSize.width !== size) { light.shadow.map?.dispose(); light.shadow.map = null; light.shadow.mapSize.set(size, size); }
+    }
+    this.textureAnisotropy = Math.min(settings.anisotropy, this.renderer.capabilities.getMaxAnisotropy());
+    this.refreshTextureQuality();
+    this.canvas.dispatchEvent(new CustomEvent('quality-change', { detail: this.qualityLabel() }));
+    this.markShadowsDirty();
+  }
+  qualityLabel() {
+    if (this.qualityMode === 'high') return 'High detail · full shadows';
+    if (this.qualityMode === 'low') return 'Battery saver · shadows off';
+    return `Automatic · ${{ balanced: 'balanced detail', economy: 'lighter shadows', minimal: 'shadows off for smoother motion' }[this.qualityController.tier]}`;
+  }
+  refreshTextureQuality() {
+    for (const texture of this.materials.textures) if (texture.anisotropy !== this.textureAnisotropy) { texture.anisotropy = this.textureAnisotropy; texture.needsUpdate = true; }
+  }
 
-    // Environment background update
-    this.setBackgroundMode(state.environmentMode || 'black');
+  markShadowsDirty() { this.renderer.shadowMap.needsUpdate = true; }
 
-    // If trailer type changed or doesn't exist, instantiate new subclass
-    if (!this.activeTrailer || this.currentType !== type) {
-      if (this.activeTrailer) {
-        this.activeTrailer.dispose();
+  updateTrailer(state, metrics, previous) {
+    this.state = state; this.metrics = metrics;
+    this.setBackgroundMode(state.environmentMode);
+    const changed = key => !previous || previous[key] !== state[key];
+    if (changed('renderQuality')) { this.applyQuality(state.renderQuality); this.handleResize(false); }
+    const geometryChanged = GEOMETRY_KEYS.some(changed);
+    if (geometryChanged) this.partInspector.clear();
+    if (changed('inspectMode')) this.partInspector.setEnabled(state.inspectMode);
+    const sameType = this.activeTrailer && this.currentType === state.trailerType;
+    this.finishMotion();
+    const poseKey = state.trailerType === 'dump' ? 'dumpAngleDeg' : state.trailerType === 'cargo' ? 'cargoDoorOpenPct' : 'rampDeploymentPct';
+    const divisor = state.trailerType === 'dump' ? 42 : 100;
+    const poseOnly = sameType && !geometryChanged && changed(poseKey);
+    if (geometryChanged) {
+      this.materials.finishSheen = state.finishSheen;
+      if (!sameType) {
+        this.activeTrailer?.dispose();
+        this.activeTrailer = trailerFactory.create(state.trailerType, this.scene, this.materials);
+        this.currentType = state.trailerType;
       }
-      this.activeTrailer = trailerFactory.create(type, this.scene, this.materials);
-      this.currentType = type;
+      this.activeTrailer.build(state, metrics);
+      this.refreshTextureQuality();
+      this.markShadowsDirty();
+    } else if (poseOnly) {
+      this.activeTrailer.currentConfig = state;
+      const target = state[poseKey] / divisor;
+      const current = this.activeTrailer.pose || 0;
+      const sliderPose = state.trailerType === 'dump' ? state.dumpBedPosition === 'custom' : state.trailerType === 'cargo' ? state.cargoDoorPosition === 'custom' : state.rampPosition === 'custom';
+      this.activeTrailer.setPose(target);
+      this.setCameraPreset(state.cameraPreset, undefined, false, sliderPose);
+      if (!sliderPose && !this.cameraController.reducedMotion.matches) {
+        this.activeTrailer.setPose(current);
+        this.motion = { from: current, to: target, elapsed: 0 };
+      }
+      this.markShadowsDirty();
     }
-
-    // Build the procedural geometry
-    this.activeTrailer.build(state, metrics);
-
-    // Update 3D Dimension Overlay
-    this.dimensionOverlay.update(metrics, state.showDimensions);
-
-    // Update Tow Truck Position and Visibility
-    this.towTruck.updatePosition(metrics, state.hitchStyle, !!state.showTowTruck);
-
-    // Adjust shadow frustum target position to trailer midpoint
-    const midX = metrics.bedLengthM * 0.45;
-    this.dirLight.target.position.set(midX, 0, 0);
+    if (geometryChanged || changed('jackExtensionPct')) {
+      this.activeTrailer.setJackPose(state.jackExtensionPct / 100); this.markShadowsDirty();
+    }
+    this.cargoEnvelope.update(state, metrics, this.activeTrailer);
+    this.activeTrailer.rootGroup.traverse(object => { if (object.userData.cutaway) object.visible = !state.cargoCutaway; });
+    if (changed('cargoCutaway')) this.markShadowsDirty();
+    if (geometryChanged || poseOnly || changed('jackExtensionPct') || DIMENSION_KEYS.some(changed)) this.refreshDimensions();
+    const truckChanged = ['truckWheelbaseIn', 'truckWidthIn', 'truckRearHitchOffsetIn'].some(changed);
+    if (truckChanged) { this.towTruck.updateDimensions(state); this.refreshTextureQuality(); }
+    if (truckChanged || changed('showTowTruck') || ['customTruckScalePct', 'customTruckOffsetM', 'customTruckFlipped'].some(changed)) this.applyCustomTruckSettings();
+    this.towTruck.updatePosition(metrics, state.hitchStyle, state.showTowTruck);
+    if (geometryChanged && !poseOnly || changed('showTowTruck') || changed('cameraPreset') || changed('loadPreset') || state.showTowTruck && truckChanged) {
+      this.setCameraPreset(state.cameraPreset, undefined, false, !previous);
+    }
+    const center = this.getBounds().getCenter(new THREE.Vector3());
+    this.dirLight.target.position.copy(center);
+    this.dirLight.position.copy(center).add(new THREE.Vector3(-5, 12, 8));
     this.dirLight.target.updateMatrixWorld();
+    if (geometryChanged || changed('showTowTruck') || truckChanged || ['customTruckScalePct', 'customTruckOffsetM', 'customTruckFlipped'].some(changed)) this.markShadowsDirty();
+    this.requestRender();
   }
 
-  setCameraPreset(preset, metrics, showTowTruck = false, instant = false) {
-    this.cameraController.setPreset(preset, metrics, showTowTruck, instant);
+  getBounds(preset) {
+    this.scene.updateMatrixWorld(true);
+    let bounds = new THREE.Box3().setFromObject(this.activeTrailer.rootGroup);
+    if (this.state.showTowTruck) bounds.union(this.towTruck.getBounds());
+    if (this.cargoEnvelope.group.visible) bounds.expandByObject(this.cargoEnvelope.group);
+    if (preset === 'hitch') {
+      bounds = new THREE.Box3().setFromObject(this.activeTrailer.hitchGroup);
+      bounds.expandByScalar(.3);
+    } else if (preset === 'ramps') {
+      const rear = this.metrics.bedLengthM;
+      bounds.min.x = rear - .55;
+      bounds.max.x = Math.max(rear + .4, bounds.max.x);
+      if (this.state.trailerType === 'dump') bounds.max.y = Math.min(bounds.max.y, this.metrics.deckHeightM + 1.2);
+    } else if (this.state.showDimensions) bounds.expandByScalar(.4);
+    return bounds;
+  }
+  refreshDimensions() {
+    if (!this.activeTrailer) return;
+    this.activeTrailer.rootGroup.updateMatrixWorld(true);
+    const bounds = new THREE.Box3().setFromObject(this.activeTrailer.rootGroup);
+    this.dimensionOverlay.update(this.metrics, this.state.showDimensions, this.state, bounds);
+    const label = document.getElementById('measurement-summary');
+    if (label) {
+      const v = measurementValues(this.metrics, bounds), units = this.state.measurementUnits;
+      label.textContent = `Overall span in this pose: ${formatDistance(v.overallLength, units)} · Hitch to axle group: ${formatDistance(v.hitchToAxle, units)}${this.state.trailerType === 'cargo' ? ` · Door opening: ${formatDistance(v.doorWidth, units, true)} × ${formatDistance(v.doorHeight, units, true)}` : ''}`;
+    }
   }
 
-  handleResize() {
-    this.width = window.innerWidth;
-    this.height = window.innerHeight;
-    this.camera.aspect = this.width / this.height;
-    this.camera.updateProjectionMatrix();
-    this.renderer.setSize(this.width, this.height);
+  setCameraPreset(preset, _metrics, _truck, instant = false) {
+    if (!this.activeTrailer) return;
+    this.cameraController.frame(this.getBounds(preset), preset, instant);
+    this.requestRender();
+  }
+  fitView() {
+    if (!this.activeTrailer) return;
+    this.cameraController.frame(this.getBounds(), this.state.cameraPreset, false, true);
+  }
+  applyCustomTruckSettings() {
+    if (!this.state || !this.towTruck.isCustom) return;
+    this.towTruck.adjustCustomModel({ scale: this.state.customTruckScalePct / 100, offset: this.state.customTruckOffsetM, flip: this.state.customTruckFlipped });
+  }
+  refreshTruck(fit = true) {
+    this.applyCustomTruckSettings();
+    this.towTruck.updatePosition(this.metrics, this.state.hitchStyle, this.state.showTowTruck);
+    this.markShadowsDirty();
+    if (fit) this.fitView();
+    this.requestRender();
   }
 
-  animate() {
-    if (!this.isRunning) return;
-    requestAnimationFrame(this.animate);
-    this.cameraController.update();
+  handleResize(fit = true) {
+    const { width, height } = this.container.getBoundingClientRect();
+    if (!width || !height) return;
+    this.width = width; this.height = height;
+    this.applyQuality(this.qualityMode, true);
+    this.camera.aspect = width / height; this.camera.updateProjectionMatrix();
+    this.renderer.setSize(width, height, false);
+    if (fit && this.activeTrailer) this.cameraController.frame(this.getBounds(), this.state.cameraPreset, true, true);
+    this.requestRender();
+  }
+
+  requestRender() {
+    if (this.running && !this.frame && !document.hidden && !this.contextLost) this.frame = requestAnimationFrame(this.render);
+  }
+  render(time) {
+    this.frame = 0;
+    if (!this.running || document.hidden || this.contextLost) return;
+    const frameMs = this.lastFrameTime ? time - this.lastFrameTime : 0;
+    const delta = frameMs ? Math.min(.05, frameMs / 1000) : 1 / 60;
+    this.lastFrameTime = time;
+    if (this.motion) {
+      this.motion.elapsed += delta;
+      const t = Math.min(1, this.motion.elapsed / .65);
+      this.activeTrailer.setPose(THREE.MathUtils.lerp(this.motion.from, this.motion.to, t * t * (3 - 2 * t)));
+      this.markShadowsDirty();
+      if (t === 1) { this.motion = null; this.refreshDimensions(); }
+    }
+    const moving = this.cameraController.update(delta);
+    this.dimensionOverlay.updateScale(this.camera, this.height);
+    this.partInspector.update();
+    this.cargoEnvelope.updatePose();
     this.renderer.render(this.scene, this.camera);
+    if (this.state?.renderQuality === 'auto' && frameMs && this.qualityController.sample(frameMs, moving || !!this.motion)) {
+      this.applyQuality('auto', true); this.handleResize(false);
+    }
+    if (moving || this.motion) this.requestRender();
+    else this.lastFrameTime = 0;
+  }
+  finishMotion() {
+    if (!this.motion) return;
+    this.activeTrailer.setPose(this.motion.to); this.motion = null;
+    this.markShadowsDirty(); this.requestRender();
+  }
+  async createSnapshot() {
+    const wasMoving = !!this.motion;
+    this.finishMotion();
+    if (wasMoving) this.refreshDimensions();
+    this.cameraController.update(1);
+    this.cargoEnvelope.updatePose();
+    this.partInspector.update();
+    this.dimensionOverlay.updateScale(this.camera, this.height);
+    this.renderer.render(this.scene, this.camera);
+    return new Promise((resolve, reject) => this.canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error('The image could not be saved.')), 'image/png'));
+  }
+  async createThumbnail() {
+    const image = await createImageBitmap(await this.createSnapshot());
+    const canvas = document.createElement('canvas'); canvas.width = 180; canvas.height = 110;
+    const context = canvas.getContext('2d'); context.fillStyle = '#e4e7eb'; context.fillRect(0, 0, 180, 110);
+    const ratio = Math.min(180 / image.width, 110 / image.height);
+    context.drawImage(image, (180 - image.width * ratio) / 2, (110 - image.height * ratio) / 2, image.width * ratio, image.height * ratio);
+    image.close(); return canvas.toDataURL('image/jpeg', .7);
+  }
+  captureView({ preset = 'isometric', width = 640, height = 360, overlays = false, truck = false } = {}) {
+    const wasMoving = !!this.motion;
+    this.finishMotion(); if (wasMoving) this.refreshDimensions(); this.cargoEnvelope.updatePose();
+    const controller = this.cameraController, controls = controller.controls;
+    const saved = { running: this.running, size: this.renderer.getSize(new THREE.Vector2()), ratio: this.renderer.getPixelRatio(),
+      position: this.camera.position.clone(), target: controls.target.clone(), aspect: this.camera.aspect, far: this.camera.far,
+      minDistance: controls.minDistance, damping: controls.enableDamping, enabled: controls.enabled,
+      transition: controller.isTransitioning, cameraGoal: controller.targetCameraPos.clone(), lookGoal: controller.targetLookAt.clone() };
+    const visibility = new Map();
+    const hide = (object, visible) => { if (object) { visibility.set(object, object.visible); object.visible = visible; } };
+    this.running = false; cancelAnimationFrame(this.frame); this.frame = 0;
+    try {
+      hide(this.dimensionOverlay.group, overlays && this.state.showDimensions);
+      hide(this.cargoEnvelope.group, overlays && this.cargoEnvelope.fit.enabled);
+      hide(this.partInspector.highlight, false); hide(this.towTruck.group, truck && this.state.showTowTruck);
+      if (!overlays) this.activeTrailer.rootGroup.traverse(object => { if (object.userData.cutaway) hide(object, true); });
+      this.renderer.setPixelRatio(1); this.renderer.setSize(width, height, false);
+      this.camera.aspect = width / height; this.camera.updateProjectionMatrix();
+      controls.enabled = false; controls.enableDamping = false;
+      const bounds = new THREE.Box3().setFromObject(this.activeTrailer.rootGroup);
+      if (this.towTruck.group.visible) bounds.union(this.towTruck.getBounds());
+      if (this.cargoEnvelope.group.visible) bounds.expandByObject(this.cargoEnvelope.group);
+      if (this.dimensionOverlay.group.visible) bounds.expandByScalar(.6);
+      controller.frame(bounds, preset, true);
+      this.dimensionOverlay.updateScale(this.camera, height); this.markShadowsDirty(); this.renderer.render(this.scene, this.camera);
+      return this.canvas.toDataURL('image/jpeg', .85);
+    } finally {
+      visibility.forEach((visible, object) => { object.visible = visible; });
+      this.renderer.setPixelRatio(saved.ratio); this.renderer.setSize(saved.size.x, saved.size.y, false);
+      this.camera.position.copy(saved.position); this.camera.aspect = saved.aspect; this.camera.far = saved.far; this.camera.updateProjectionMatrix();
+      controls.target.copy(saved.target); controls.minDistance = saved.minDistance; controls.update();
+      controls.enableDamping = saved.damping; controls.enabled = saved.enabled;
+      controller.targetCameraPos.copy(saved.cameraGoal); controller.targetLookAt.copy(saved.lookGoal); controller.isTransitioning = saved.transition;
+      this.dimensionOverlay.updateScale(this.camera, this.height); this.running = saved.running; this.lastFrameTime = 0; this.markShadowsDirty(); this.requestRender();
+    }
   }
 
   dispose() {
-    this.isRunning = false;
-    window.removeEventListener('resize', this.onResize);
-    if (this.activeTrailer) this.activeTrailer.dispose();
-    this.towTruck.dispose();
-    this.materials.dispose();
-    this.cameraController.dispose();
-    this.dimensionOverlay.dispose();
-    this.renderer.dispose();
+    this.running = false; cancelAnimationFrame(this.frame);
+    this.resizeObserver.disconnect(); this.events.abort();
+    this.activeTrailer?.dispose(); this.towTruck.dispose();
+    this.cameraController.dispose(); this.dimensionOverlay.dispose();
+    this.partInspector.dispose();
+    this.cargoEnvelope.dispose();
+    this.environmentTarget.dispose();
+    const geometries = new Set(), materials = new Set();
+    this.scene.traverse(child => {
+      if (child.geometry) geometries.add(child.geometry);
+      for (const material of Array.isArray(child.material) ? child.material : [child.material]) if (material) materials.add(material);
+    });
+    geometries.forEach(geometry => geometry.dispose()); materials.forEach(material => material.dispose());
+    this.materials.dispose(); decalFactory.dispose(); this.renderer.dispose();
   }
 }

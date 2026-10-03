@@ -64,7 +64,7 @@ export class DecalFactory {
         ctx.shadowBlur = 0;
         ctx.shadowOffsetX = 0;
         ctx.shadowOffsetY = 0;
-        ctx.fillText('HEAVY DUTY COMMERCIAL SPEC • DOT CERTIFIED', canvas.width / 2, canvas.height / 2 + 85);
+        ctx.fillText('CUSTOM TRAILER DESIGN', canvas.width / 2, canvas.height / 2 + 85);
       } else {
         // Frame / Rub Rail Compact Badge Decal
         // Dark pill plate background
@@ -85,6 +85,10 @@ export class DecalFactory {
       }
     }
 
+    if (this.cache.size >= 32) {
+      const oldest = this.cache.keys().next().value;
+      this.cache.get(oldest).dispose(); this.cache.delete(oldest);
+    }
     const texture = new THREE.CanvasTexture(canvas);
     texture.colorSpace = THREE.SRGBColorSpace;
     texture.minFilter = THREE.LinearMipmapLinearFilter;
@@ -110,6 +114,7 @@ export class DecalFactory {
       polygonOffsetUnits: -1
     });
 
+    mat.userData.owned = true;
     const mesh = new THREE.Mesh(geo, mat);
     mesh.name = 'Trailer_Decal_Signage';
     return mesh;

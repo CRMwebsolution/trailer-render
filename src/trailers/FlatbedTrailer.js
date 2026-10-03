@@ -104,10 +104,14 @@ export class FlatbedTrailer extends BaseTrailer {
       this.chassisGroup.add(tapeMesh);
 
       // Stake pockets every 2 feet (0.61m)
+      const pocketShape = new THREE.Shape();
+      pocketShape.moveTo(-.04, -.027); pocketShape.lineTo(.04, -.027); pocketShape.lineTo(.04, .027); pocketShape.lineTo(-.04, .027); pocketShape.closePath();
+      const pocketHole = new THREE.Path();
+      pocketHole.moveTo(-.032, -.020); pocketHole.lineTo(-.032, .020); pocketHole.lineTo(.032, .020); pocketHole.lineTo(.032, -.020); pocketHole.closePath(); pocketShape.holes.push(pocketHole);
+      const pocketGeo = new THREE.ExtrudeGeometry(pocketShape, { depth: .10, bevelEnabled: false, steps: 1 }); pocketGeo.rotateX(Math.PI / 2);
       for (let px = 0.6; px < bedLengthM - 0.3; px += 0.61) {
-        const pocketGeo = new THREE.BoxGeometry(0.06, 0.10, 0.05);
         const pocketMesh = new THREE.Mesh(pocketGeo, frameMat);
-        pocketMesh.position.set(px, deckHeightM - 0.04, outerZ + (side * 0.035));
+        pocketMesh.position.set(px, deckHeightM + .01, outerZ + (side * 0.035));
         pocketMesh.castShadow = true;
         this.chassisGroup.add(pocketMesh);
       }
@@ -184,29 +188,38 @@ export class FlatbedTrailer extends BaseTrailer {
     const flatLengthM = bedLengthM - dovetailLengthM;
     const effectiveDeckWidthM = deckOver ? bedWidthM : (bedWidthM - 0.1);
 
-    // 1. Flat main deck
-    const flatDeckGeo = new THREE.BoxGeometry(flatLengthM, deckThicknessM, effectiveDeckWidthM);
-    const flatDeckMesh = new THREE.Mesh(flatDeckGeo, deckMat);
-    flatDeckMesh.position.set(flatLengthM / 2, deckHeightM + (deckThicknessM / 2), 0);
-    flatDeckMesh.castShadow = true;
-    flatDeckMesh.receiveShadow = true;
-    this.deckGroup.add(flatDeckMesh);
-
-    // 2. Sloped Dovetail Deck (if present)
-    if (hasDovetail) {
-      const dovetailHypotenuse = Math.sqrt(dovetailLengthM * dovetailLengthM + dovetailDropM * dovetailDropM);
-      const dovetailAngle = Math.atan2(dovetailDropM, dovetailLengthM);
-      const doveDeckGeo = new THREE.BoxGeometry(dovetailHypotenuse, deckThicknessM, effectiveDeckWidthM);
-      const doveDeckMesh = new THREE.Mesh(doveDeckGeo, deckMat);
-      doveDeckMesh.rotation.z = -dovetailAngle;
-      doveDeckMesh.position.set(
-        flatLengthM + (dovetailLengthM / 2),
-        deckHeightM - (dovetailDropM / 2) + (deckThicknessM / 2),
-        0
-      );
-      doveDeckMesh.castShadow = true;
-      doveDeckMesh.receiveShadow = true;
-      this.deckGroup.add(doveDeckMesh);
+    const boardCount = Math.max(1, Math.round(effectiveDeckWidthM / .145));
+    const boardWidth = effectiveDeckWidthM / boardCount;
+    const sections = [{ length: flatLengthM, x: flatLengthM / 2, y: deckHeightM + deckThicknessM / 2, angle: 0 }];
+    if (hasDovetail) sections.push({
+      length: Math.hypot(dovetailLengthM, dovetailDropM),
+      x: flatLengthM + dovetailLengthM / 2,
+      y: deckHeightM - dovetailDropM / 2 + deckThicknessM / 2,
+      angle: -Math.atan2(dovetailDropM, dovetailLengthM)
+    });
+    for (const section of sections) {
+      const wood = config.deckMaterial === 'wood';
+      for (let index = 0; index < (wood ? boardCount : 1); index++) {
+        const material = wood ? this.materials.getMaterial('deck_wood', {
+          repeatX: Math.max(1, Math.round(metrics.bedLengthFt / 8)), repeatY: 1,
+          singleBoard: true, tone: index % 5
+        }) : deckMat;
+        const mesh = new THREE.Mesh(new THREE.BoxGeometry(section.length, deckThicknessM, wood ? boardWidth - .003 : effectiveDeckWidthM), material);
+        mesh.position.set(section.x, section.y, wood ? -effectiveDeckWidthM / 2 + boardWidth * (index + .5) : 0);
+        mesh.rotation.z = section.angle;
+        mesh.castShadow = mesh.receiveShadow = true;
+        this.deckGroup.add(mesh);
+      }
+    }
+    // Recessed tie-down rings add useful detail along both deck edges.
+    const hardware = this.materials.getMaterial('zinc_hardware');
+    for (const fraction of [.14, .45, .76]) {
+      for (const side of [-1, 1]) {
+        const ring = new THREE.Mesh(new THREE.TorusGeometry(.045, .009, 6, 18), hardware);
+        ring.rotation.x = -Math.PI / 2;
+        ring.position.set(flatLengthM * fraction, deckHeightM + deckThicknessM + .008, side * (effectiveDeckWidthM / 2 - .10));
+        ring.castShadow = true; this.deckGroup.add(ring);
+      }
     }
   }
 
@@ -264,7 +277,7 @@ export class FlatbedTrailer extends BaseTrailer {
       // Ball socket casting
       const socketGeo = new THREE.CylinderGeometry(0.06, 0.07, 0.10, 16);
       const socket = new THREE.Mesh(socketGeo, hardwareMat);
-      socket.position.set(-tongueReachM - 0.04, couplerElevationM + 0.05, 0);
+      socket.position.set(-tongueReachM, couplerElevationM + 0.05, 0);
       socket.castShadow = true;
       this.hitchGroup.add(socket);
 
@@ -274,18 +287,7 @@ export class FlatbedTrailer extends BaseTrailer {
       latch.position.set(-tongueReachM - 0.02, couplerElevationM + 0.11, 0);
       this.hitchGroup.add(latch);
 
-      // Integrated A-Frame Tongue Jack (clean single vertical tube through A-frame)
-      const jackTubeGeo = new THREE.CylinderGeometry(0.04, 0.04, 0.45, 16);
-      const jackTube = new THREE.Mesh(jackTubeGeo, frameMat);
-      jackTube.position.set(-tongueReachM + 0.32, couplerElevationM + 0.16, 0);
-      jackTube.castShadow = true;
-      this.hitchGroup.add(jackTube);
 
-      // Jack Foot Plate on ground
-      const footGeo = new THREE.CylinderGeometry(0.09, 0.09, 0.02, 16);
-      const foot = new THREE.Mesh(footGeo, hardwareMat);
-      foot.position.set(-tongueReachM + 0.32, 0.01, 0);
-      this.hitchGroup.add(foot);
 
     } else {
       // ----------------- GOOSENECK TOWER -----------------
@@ -378,6 +380,7 @@ export class FlatbedTrailer extends BaseTrailer {
     const frameMat = this.materials.getMaterial('frame_steel', { color: frameColor });
     const hardwareMat = this.materials.getMaterial('zinc_hardware');
 
+    this.rampAssemblies = [];
     const rampPos = config.rampPosition || 'deployed'; // 'stowed' | 'deployed' | 'standing'
     const rampWidthM = 0.42; // ~16.5" wide ramp runner
     const rampThickM = 0.065;
@@ -420,7 +423,7 @@ export class FlatbedTrailer extends BaseTrailer {
           rampAssembly.rotation.z = -rad;
         }
 
-        this.rampGroup.add(rampAssembly);
+        this.rampGroup.add(rampAssembly); this.rampAssemblies.push(rampAssembly);
       });
 
     } else {
@@ -435,13 +438,6 @@ export class FlatbedTrailer extends BaseTrailer {
           // Standing vertical (90 degrees) for transport
           rampAssembly.rotation.z = Math.PI / 2;
 
-          // Support brace rod
-          const braceGeo = new THREE.CylinderGeometry(0.012, 0.012, 0.75, 12);
-          const brace = new THREE.Mesh(braceGeo, hardwareMat);
-          brace.position.set(rearLipX - 0.25, rearHingeY + 0.35, side * (rampTrackZ + side * 0.08));
-          brace.rotation.z = -Math.PI / 4;
-          this.rampGroup.add(brace);
-
         } else if (rampPos === 'stowed') {
           // Folded 180 degrees forward flat onto dovetail deck surface
           rampAssembly.rotation.z = Math.PI;
@@ -452,8 +448,26 @@ export class FlatbedTrailer extends BaseTrailer {
           rampAssembly.rotation.z = -rad;
         }
 
-        this.rampGroup.add(rampAssembly);
+        this.rampGroup.add(rampAssembly); this.rampAssemblies.push(rampAssembly);
       });
+    }
+    this.setPose(config.rampDeploymentPct / 100);
+  }
+
+  setPose(value) {
+    this.pose = value;
+    const m = this.currentMetrics;
+    const y = m.deckHeightM - m.dovetailDropIn * .0254;
+    const angle = THREE.MathUtils.degToRad(m.rampAngleDeg);
+    for (const ramp of this.rampAssemblies || []) {
+      if (m.rampStyle === "slide_in") {
+        const length = m.rampLengthFt * .3048;
+        ramp.position.x = THREE.MathUtils.lerp(m.bedLengthM - length - .05, m.bedLengthM, Math.min(1, value / .65));
+        ramp.position.y = y - .12 + .12 * THREE.MathUtils.clamp((value - .65) / .15, 0, 1);
+        ramp.rotation.z = -angle * THREE.MathUtils.clamp((value - .8) / .2, 0, 1);
+      } else {
+        ramp.rotation.z = value <= .5 ? THREE.MathUtils.lerp(Math.PI, Math.PI / 2, value * 2) : THREE.MathUtils.lerp(Math.PI / 2, -angle, (value - .5) * 2);
+      }
     }
   }
 
