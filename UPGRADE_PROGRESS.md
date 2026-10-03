@@ -4,7 +4,7 @@ All work stays on `codex/configurator-improvements`. Each finished upgrade is te
 
 - [x] Undo, redo, grouped slider/text edits, and an undoable reset.
 - [x] Named starter presets, local saved designs, thumbnails, and recovery of the last design.
-- [ ] Selectable measurements and unit conversion.
+- [x] Selectable measurements and unit conversion, based on the procedural model and its current pose.
 - [ ] Continuous moving-part controls.
 - [ ] Part selection and explanations.
 - [ ] Cargo fit visualization.

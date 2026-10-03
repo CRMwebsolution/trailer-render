@@ -17,6 +17,7 @@ button:disabled { cursor: not-allowed; }
 .history-toolbar { display: flex; align-items: center; gap: 8px; }
 .history-toolbar .secondary-btn { flex: 1; padding: 8px; font-size: 12px; }
 .design-library > :not(summary) { margin-top: 10px; }
+.measurement-settings > :not(summary) { margin-top: 10px; }
 .saved-design { display: flex; align-items: center; gap: 4px; padding: 7px 0; border-bottom: 1px solid #344152; }
 .saved-design-load { flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; color: #e9eff5; border: 0; background: transparent; text-align: left; font-size: 12px; }
 .saved-design-load span { overflow-wrap: anywhere; }

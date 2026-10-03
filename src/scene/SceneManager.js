@@ -6,12 +6,13 @@ import { DimensionOverlay } from './DimensionOverlay.js';
 import { TowTruck } from './TowTruck.js';
 import { trailerFactory } from '../trailers/TrailerFactory.js';
 import { decalFactory } from './DecalFactory.js';
+import { measurementValues, formatDistance } from '../core/modelGeometry.js';
 
 const GEOMETRY_KEYS = ['trailerType', 'bedLengthFt', 'trailerWidthIn', 'fenderStyle',
   'payloadClass', 'hitchStyle', 'deckMaterial', 'finishColor', 'rampStyle', 'rampLengthFt',
   'rampPosition', 'dumpBedPosition', 'dumpDoorStyle', 'cargoRearDoor', 'cargoSideDoor',
   'cargoDoorPosition', 'decalText', 'decalColor'];
-const DIMENSION_KEYS = ['bedLengthFt', 'trailerWidthIn', 'payloadClass', 'fenderStyle', 'showDimensions'];
+const DIMENSION_KEYS = ['bedLengthFt', 'trailerWidthIn', 'payloadClass', 'fenderStyle', 'showDimensions', 'measurementMode', 'measurementUnits', 'hitchStyle', 'trailerType'];
 
 export class SceneManager {
   constructor(canvas) {
@@ -265,7 +266,7 @@ export class SceneManager {
       this.activeTrailer.build(state, metrics);
       this.markShadowsDirty();
     }
-    if (DIMENSION_KEYS.some(changed)) this.dimensionOverlay.update(metrics, state.showDimensions);
+    if (geometryChanged || DIMENSION_KEYS.some(changed)) this.refreshDimensions();
     this.towTruck.updatePosition(metrics, state.hitchStyle, state.showTowTruck);
     if (geometryChanged && !poseOnly || changed('showTowTruck') || changed('cameraPreset')) {
       this.setCameraPreset(state.cameraPreset, undefined, false, !previous);
@@ -292,6 +293,17 @@ export class SceneManager {
       if (this.state.trailerType === 'dump') bounds.max.y = Math.min(bounds.max.y, this.metrics.deckHeightM + 1.2);
     } else if (this.state.showDimensions) bounds.expandByScalar(.4);
     return bounds;
+  }
+  refreshDimensions() {
+    if (!this.activeTrailer) return;
+    this.activeTrailer.rootGroup.updateMatrixWorld(true);
+    const bounds = new THREE.Box3().setFromObject(this.activeTrailer.rootGroup);
+    this.dimensionOverlay.update(this.metrics, this.state.showDimensions, this.state, bounds);
+    const label = document.getElementById('measurement-summary');
+    if (label) {
+      const v = measurementValues(this.metrics, bounds), units = this.state.measurementUnits;
+      label.textContent = `Overall span in this pose: ${formatDistance(v.overallLength, units)} · Hitch to axle group: ${formatDistance(v.hitchToAxle, units)}${this.state.trailerType === 'cargo' ? ` · Door opening: ${formatDistance(v.doorWidth, units, true)} × ${formatDistance(v.doorHeight, units, true)}` : ''}`;
+    }
   }
 
   setCameraPreset(preset, _metrics, _truck, instant = false) {
@@ -333,7 +345,7 @@ export class SceneManager {
       const t = Math.min(1, this.motion.elapsed / .65);
       this.activeTrailer.setPose(THREE.MathUtils.lerp(this.motion.from, this.motion.to, t * t * (3 - 2 * t)));
       this.markShadowsDirty();
-      if (t === 1) this.motion = null;
+      if (t === 1) { this.motion = null; this.refreshDimensions(); }
     }
     const moving = this.cameraController.update(delta);
     this.dimensionOverlay.updateScale(this.camera, this.height);

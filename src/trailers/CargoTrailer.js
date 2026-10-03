@@ -6,6 +6,7 @@
  * 32" driver-side RV man-door, and full-side corporate / racing decals.
  */
 import * as THREE from 'three';
+import { MODEL_GEOMETRY } from '../core/modelGeometry.js';
 import { BaseTrailer } from './BaseTrailer.js';
 import { decalFactory } from '../scene/DecalFactory.js';
 
@@ -46,8 +47,8 @@ export class CargoTrailer extends BaseTrailer {
     const stoneGuardMat = this.materials.getMaterial('deck_diamond_plate');
     const interiorWood = this.materials.getMaterial('deck_wood');
 
-    const boxHeightM = 2.15; // 7ft standard interior height
-    const vNoseLengthM = 0.76; // 2.5ft aerodynamic V-nose extension
+    const boxHeightM = MODEL_GEOMETRY.cargoBoxHeightM;
+    const vNoseLengthM = MODEL_GEOMETRY.cargoNoseLengthM;
     const halfWidthM = bedWidthM / 2;
 
     // 1. Interior 3/4" Plywood Floor

@@ -7,7 +7,8 @@ const FIELDS = {
   'select-trailer-type': 'trailerType', 'slider-bed-length': 'bedLengthFt',
   'select-trailer-width': 'trailerWidthIn', 'select-payload-class': 'payloadClass',
   'slider-ramp-length': 'rampLengthFt', 'check-cargo-side-door': 'cargoSideDoor',
-  'input-decal-text': 'decalText', 'select-render-quality': 'renderQuality'
+  'input-decal-text': 'decalText', 'select-render-quality': 'renderQuality',
+  'select-measurement-mode': 'measurementMode', 'select-measurement-units': 'measurementUnits'
 };
 const RADIOS = {
   'fender-style': 'fenderStyle', 'hitch-style': 'hitchStyle', 'deck-mat': 'deckMaterial',

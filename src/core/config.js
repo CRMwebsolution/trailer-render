@@ -8,7 +8,7 @@ export const DEFAULT_CONFIG = Object.freeze({
   cargoRearDoor: 'ramp', cargoSideDoor: true, cargoDoorPosition: 'closed',
   decalText: 'TITAN 14K', decalColor: '#f59e0b',
   environmentMode: 'white', showTowTruck: false, showDimensions: true,
-  cameraPreset: 'isometric', renderQuality: 'auto'
+  cameraPreset: 'isometric', renderQuality: 'auto', measurementMode: 'deck', measurementUnits: 'imperial'
 });
 
 const ENUMS = {
@@ -24,6 +24,7 @@ const ENUMS = {
   environmentMode: ['black', 'white', 'showroom'],
   cameraPreset: ['isometric', 'side', 'top', 'hitch', 'ramps'],
   renderQuality: ['auto', 'high', 'low']
+  , measurementMode: ['deck', 'overall', 'hitch', 'interior', 'all'], measurementUnits: ['imperial', 'metric']
 };
 
 function numberInRange(value, fallback, min, max, step = 1) {

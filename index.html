@@ -329,6 +329,15 @@
           </div>
         </div>
 
+        <details class="section-group measurement-settings">
+          <summary>Measurements</summary>
+          <label class="control-label" for="select-measurement-mode">Show in the model</label>
+          <select id="select-measurement-mode" class="config-select"><option value="deck">Deck dimensions</option><option value="overall">Overall span</option><option value="hitch">Hitch to axle group</option><option value="interior">Cargo door opening</option><option value="all">All measurements</option></select>
+          <label class="control-label" for="select-measurement-units">Units</label>
+          <select id="select-measurement-units" class="config-select"><option value="imperial">Feet & inches</option><option value="metric">Meters</option></select>
+          <p id="measurement-summary" class="control-help"></p>
+          <p class="control-help">Measurements describe this procedural model and its current pose. Cargo opening measurements apply to enclosed trailers.</p>
+        </details>
         <details class="section-group vehicle-settings">
           <summary>Tow vehicle & display</summary>
           <p class="control-help">Vehicles are visual references. Alignment does not verify towing compatibility.</p>
