@@ -1,0 +1,340 @@
+/**
+ * CargoTrailer.js
+ * High-fidelity procedural enclosed cargo trailer.
+ * Features clean aerodynamic wedge V-nose with diamond plate ATP stone guard,
+ * standard A-frame tongue hitch, drop-down ramp door vs double swing barn doors,
+ * 32" driver-side RV man-door, and full-side corporate / racing decals.
+ */
+import * as THREE from 'three';
+import { BaseTrailer } from './BaseTrailer.js';
+import { decalFactory } from '../scene/DecalFactory.js';
+
+export class CargoTrailer extends BaseTrailer {
+  constructor(scene, materialFactory) {
+    super(scene, materialFactory);
+  }
+
+  buildFrame(config, metrics) {
+    const { bedLengthM, bedWidthM, deckHeightM } = metrics;
+    const frameColor = config.finishColor || '#27272a';
+    const frameMat = this.materials.getMaterial('frame_steel', { color: frameColor });
+
+    // Lower Tubular Steel Perimeter Frame
+    [-1, 1].forEach(side => {
+      const railGeo = new THREE.BoxGeometry(bedLengthM, 0.12, 0.06);
+      const rail = new THREE.Mesh(railGeo, frameMat);
+      rail.position.set(bedLengthM / 2, deckHeightM - 0.06, side * (bedWidthM / 2 - 0.03));
+      rail.castShadow = true;
+      this.chassisGroup.add(rail);
+    });
+
+    // Crossmembers
+    for (let x = 0.4; x < bedLengthM - 0.2; x += 0.6) {
+      const crossGeo = new THREE.BoxGeometry(0.06, 0.08, bedWidthM - 0.08);
+      const cross = new THREE.Mesh(crossGeo, frameMat);
+      cross.position.set(x, deckHeightM - 0.06, 0);
+      cross.castShadow = true;
+      this.chassisGroup.add(cross);
+    }
+  }
+
+  buildDeck(config, metrics) {
+    const { bedLengthM, bedWidthM, deckHeightM } = metrics;
+    const skinColor = config.finishColor || '#f8fafc';
+    const skinMat = this.materials.getMaterial('frame_steel', { color: skinColor });
+    const trimMat = this.materials.getMaterial('zinc_hardware');
+    const stoneGuardMat = this.materials.getMaterial('deck_diamond_plate');
+    const interiorWood = this.materials.getMaterial('deck_wood');
+
+    const boxHeightM = 2.15; // 7ft standard interior height
+    const vNoseLengthM = 0.76; // 2.5ft aerodynamic V-nose extension
+    const halfWidthM = bedWidthM / 2;
+
+    // 1. Interior 3/4" Plywood Floor
+    const floorGeo = new THREE.BoxGeometry(bedLengthM, 0.02, bedWidthM);
+    const floor = new THREE.Mesh(floorGeo, interiorWood);
+    floor.position.set(bedLengthM / 2, deckHeightM + 0.01, 0);
+    this.deckGroup.add(floor);
+
+    // 2. Main Rectangular Cargo Box Body
+    const boxGroup = new THREE.Group();
+    boxGroup.name = 'Cargo_Box_Shell';
+
+    // Left and Right Side Walls
+    [-1, 1].forEach(side => {
+      const wallZ = side * halfWidthM;
+      const wallGeo = new THREE.BoxGeometry(bedLengthM, boxHeightM, 0.04);
+      const wall = new THREE.Mesh(wallGeo, skinMat);
+      wall.position.set(bedLengthM / 2, deckHeightM + (boxHeightM / 2), wallZ);
+      wall.castShadow = true;
+      boxGroup.add(wall);
+
+      // Top & Bottom Anodized Aluminum Exterior Trim
+      [deckHeightM + 0.02, deckHeightM + boxHeightM - 0.02].forEach(ty => {
+        const trimGeo = new THREE.BoxGeometry(bedLengthM, 0.04, 0.06);
+        const trim = new THREE.Mesh(trimGeo, trimMat);
+        trim.position.set(bedLengthM / 2, ty, wallZ);
+        boxGroup.add(trim);
+      });
+
+      // Full-Side Signage / Graphic Decal (Item 9)
+      if (config.decalText && config.decalText.trim().length > 0) {
+        const decalMesh = decalFactory.createDecalMesh(
+          config.decalText,
+          config.decalColor || '#f59e0b',
+          Math.min(5.5, bedLengthM * 0.75),
+          1.15,
+          true
+        );
+        if (side < 0) decalMesh.rotateY(Math.PI);
+        decalMesh.position.set(bedLengthM * 0.52, deckHeightM + (boxHeightM / 2), wallZ + (side * 0.026));
+        boxGroup.add(decalMesh);
+      }
+    });
+
+    // Roof (Seamless Aluminum Roof with subtle crown)
+    const roofGeo = new THREE.BoxGeometry(bedLengthM, 0.04, bedWidthM);
+    const roof = new THREE.Mesh(roofGeo, skinMat);
+    roof.position.set(bedLengthM / 2, deckHeightM + boxHeightM + 0.02, 0);
+    roof.castShadow = true;
+    boxGroup.add(roof);
+
+    // 3. Aerodynamic Wedge V-Nose (Item 10: clean wedge replacing glitched cone)
+    const vNoseGroup = this.createVNoseWedge(vNoseLengthM, halfWidthM, boxHeightM, deckHeightM, skinMat, trimMat, stoneGuardMat);
+    boxGroup.add(vNoseGroup);
+
+    // 4. Driver-Side 32" RV Man-Door (Item 12)
+    if (config.cargoSideDoor) {
+      this.buildSideManDoor(boxGroup, deckHeightM, halfWidthM, trimMat);
+    }
+
+    // 5. Rear Doors: Drop-Down Ramp Door vs Double Swing Doors (Item 12)
+    this.buildRearCargoDoors(boxGroup, bedLengthM, bedWidthM, boxHeightM, deckHeightM, config.cargoRearDoor, skinMat, trimMat);
+
+    this.deckGroup.add(boxGroup);
+  }
+
+  /**
+   * Constructs authentic wedge V-Nose with 24" ATP stone guard and aluminum corner caps.
+   */
+  createVNoseWedge(vLen, halfW, height, deckY, skinMat, trimMat, stoneGuardMat) {
+    const group = new THREE.Group();
+    group.name = 'Aerodynamic_VNose';
+
+    // Left and Right Angled Nose Walls
+    [-1, 1].forEach(side => {
+      const pStart = new THREE.Vector3(0, deckY + height / 2, side * halfW);
+      const pNose = new THREE.Vector3(-vLen, deckY + height / 2, 0);
+      const dir = new THREE.Vector3().subVectors(pNose, pStart);
+      const wallLen = dir.length();
+      const midPos = new THREE.Vector3().addVectors(pStart, pNose).multiplyScalar(0.5);
+
+      const noseWallGeo = new THREE.BoxGeometry(wallLen, height, 0.04);
+      const noseWall = new THREE.Mesh(noseWallGeo, skinMat);
+      noseWall.position.copy(midPos);
+      noseWall.quaternion.setFromUnitVectors(new THREE.Vector3(1, 0, 0), dir.clone().normalize());
+      noseWall.castShadow = true;
+      group.add(noseWall);
+
+      // 24" (0.61m) ATP Diamond Plate Stone Guard on lower section of V-nose
+      const guardHeight = 0.61;
+      const guardGeo = new THREE.BoxGeometry(wallLen, guardHeight, 0.05);
+      const guard = new THREE.Mesh(guardGeo, stoneGuardMat);
+      guard.position.set(midPos.x, deckY + guardHeight / 2, midPos.z);
+      guard.quaternion.copy(noseWall.quaternion);
+      guard.castShadow = true;
+      group.add(guard);
+    });
+
+    // Polished Aluminum Front Nose Corner Cap (leading edge)
+    const noseCapGeo = new THREE.CylinderGeometry(0.045, 0.045, height + 0.04, 16);
+    const noseCap = new THREE.Mesh(noseCapGeo, trimMat);
+    noseCap.position.set(-vLen, deckY + height / 2, 0);
+    noseCap.castShadow = true;
+    group.add(noseCap);
+
+    // V-Nose Roof Cap
+    const vRoofGeo = new THREE.BufferGeometry();
+    const vertices = new Float32Array([
+      0, deckY + height + 0.02, halfW,
+      0, deckY + height + 0.02, -halfW,
+      -vLen, deckY + height + 0.02, 0
+    ]);
+    vRoofGeo.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
+    vRoofGeo.computeVertexNormals();
+    const vRoof = new THREE.Mesh(vRoofGeo, skinMat);
+    group.add(vRoof);
+
+    return group;
+  }
+
+  /**
+   * Driver-side 32" wide RV entrance door with aluminum frame and paddle lock.
+   */
+  buildSideManDoor(parentGroup, deckY, halfW, trimMat) {
+    const doorWidth = 0.81; // 32 inches
+    const doorHeight = 1.83; // 72 inches
+    const doorStartX = 1.15; // 3.8ft back from front
+    const doorZ = -halfW - 0.022; // Driver side (left)
+
+    const doorGroup = new THREE.Group();
+    doorGroup.name = 'Driver_Side_Man_Door';
+
+    // Extruded Aluminum Door Frame
+    const frameGeo = new THREE.BoxGeometry(doorWidth + 0.06, doorHeight + 0.06, 0.02);
+    const frame = new THREE.Mesh(frameGeo, trimMat);
+    frame.position.set(doorStartX + doorWidth / 2, deckY + (doorHeight / 2) + 0.05, doorZ);
+    doorGroup.add(frame);
+
+    // Door Panel outline
+    const panelGeo = new THREE.BoxGeometry(doorWidth, doorHeight, 0.03);
+    const panelMat = new THREE.MeshStandardMaterial({ color: 0x1f242d, roughness: 0.4 });
+    const panel = new THREE.Mesh(panelGeo, panelMat);
+    panel.position.set(doorStartX + doorWidth / 2, deckY + (doorHeight / 2) + 0.05, doorZ);
+    doorGroup.add(panel);
+
+    // Black RV Flush Paddle Lock Handle
+    const handleGeo = new THREE.BoxGeometry(0.12, 0.16, 0.025);
+    const handleMat = this.materials.getMaterial('black_iron');
+    const handle = new THREE.Mesh(handleGeo, handleMat);
+    handle.position.set(doorStartX + doorWidth - 0.12, deckY + (doorHeight * 0.52), doorZ - 0.015);
+    doorGroup.add(handle);
+
+    // Top Drip Rail
+    const dripGeo = new THREE.BoxGeometry(doorWidth + 0.10, 0.025, 0.035);
+    const drip = new THREE.Mesh(dripGeo, trimMat);
+    drip.position.set(doorStartX + doorWidth / 2, deckY + doorHeight + 0.09, doorZ);
+    doorGroup.add(drip);
+
+    parentGroup.add(doorGroup);
+  }
+
+  /**
+   * Rear Cargo Doors: Spring-Assisted Ramp Door vs Double Swing Barn Doors.
+   */
+  buildRearCargoDoors(parentGroup, bedLen, bedW, boxH, deckY, doorStyle, skinMat, trimMat) {
+    const rearX = bedLen + 0.02;
+    const doorY = deckY + (boxH / 2);
+
+    if (doorStyle === 'barn') {
+      // ----------------- SIDE-BY-SIDE DOUBLE SWING BARN DOORS -----------------
+      const doorW = (bedW - 0.08) / 2;
+
+      [-1, 1].forEach(side => {
+        const doorGeo = new THREE.BoxGeometry(0.04, boxH - 0.08, doorW - 0.01);
+        const door = new THREE.Mesh(doorGeo, skinMat);
+        door.position.set(rearX, doorY, side * (doorW / 2 + 0.01));
+        door.castShadow = true;
+        parentGroup.add(door);
+
+        // Exterior heavy aluminum wrap hinges
+        [-boxH * 0.38, 0, boxH * 0.38].forEach(hy => {
+          const hingeGeo = new THREE.BoxGeometry(0.06, 0.06, 0.08);
+          const hinge = new THREE.Mesh(hingeGeo, trimMat);
+          hinge.position.set(rearX, doorY + hy, side * (bedW / 2 - 0.03));
+          parentGroup.add(hinge);
+        });
+
+        // Vertical Cam-Action Lock Rod
+        const rodGeo = new THREE.CylinderGeometry(0.015, 0.015, boxH - 0.06, 12);
+        const rod = new THREE.Mesh(rodGeo, trimMat);
+        rod.position.set(rearX + 0.03, doorY, side * (doorW * 0.85));
+        parentGroup.add(rod);
+
+        // Cam Lock Handle
+        const handleGeo = new THREE.BoxGeometry(0.03, 0.04, 0.22);
+        const handle = new THREE.Mesh(handleGeo, trimMat);
+        handle.position.set(rearX + 0.05, doorY - 0.2, side * (doorW * 0.85));
+        parentGroup.add(handle);
+      });
+
+    } else {
+      // ----------------- DROP-DOWN SPRING-ASSISTED RAMP DOOR -----------------
+      const rampDoorGeo = new THREE.BoxGeometry(0.05, boxH - 0.08, bedW - 0.08);
+      const rampDoor = new THREE.Mesh(rampDoorGeo, skinMat);
+      rampDoor.position.set(rearX, doorY, 0);
+      rampDoor.castShadow = true;
+      parentGroup.add(rampDoor);
+
+      // Continuous Bottom Piano Hinge
+      const hingeGeo = new THREE.CylinderGeometry(0.02, 0.02, bedW - 0.06, 16);
+      hingeGeo.rotateX(Math.PI / 2);
+      const hinge = new THREE.Mesh(hingeGeo, trimMat);
+      hinge.position.set(rearX, deckY + 0.04, 0);
+      parentGroup.add(hinge);
+
+      // Top Spring Cable Drums
+      [-1, 1].forEach(side => {
+        const drumGeo = new THREE.CylinderGeometry(0.045, 0.045, 0.06, 16);
+        drumGeo.rotateX(Math.PI / 2);
+        const drum = new THREE.Mesh(drumGeo, trimMat);
+        drum.position.set(rearX, deckY + boxH - 0.04, side * (bedW / 2 - 0.06));
+        parentGroup.add(drum);
+
+        // Dual Cam Latches with padlocks
+        const latchGeo = new THREE.BoxGeometry(0.04, 0.12, 0.04);
+        const latch = new THREE.Mesh(latchGeo, trimMat);
+        latch.position.set(rearX + 0.03, deckY + (boxH * 0.45), side * (bedW / 2 - 0.08));
+        parentGroup.add(latch);
+      });
+    }
+  }
+
+  /**
+   * Standard A-Frame Tongue Hitch (Item 11: standardized across all cargo sizes).
+   */
+  buildHitch(config, metrics) {
+    const { bedWidthM, couplerHeightIn } = metrics;
+    const frameColor = config.finishColor || '#27272a';
+    const frameMat = this.materials.getMaterial('frame_steel', { color: frameColor });
+    const hardwareMat = this.materials.getMaterial('zinc_hardware');
+
+    const tongueReachM = 1.45;
+    const couplerElevationM = (couplerHeightIn || 19) * 0.0254;
+    const couplerPos = new THREE.Vector3(-tongueReachM, couplerElevationM, 0);
+    const railZ = bedWidthM * 0.38;
+
+    // Two converging structural A-frame channel beams
+    [-1, 1].forEach(side => {
+      const startPos = new THREE.Vector3(0, couplerElevationM + 0.12, side * railZ);
+      const dir = new THREE.Vector3().subVectors(couplerPos, startPos);
+      const midPos = new THREE.Vector3().addVectors(startPos, couplerPos).multiplyScalar(0.5);
+
+      const beamGeo = new THREE.BoxGeometry(dir.length(), 0.14, 0.06);
+      const beamMesh = new THREE.Mesh(beamGeo, frameMat);
+      beamMesh.position.copy(midPos);
+      beamMesh.quaternion.setFromUnitVectors(new THREE.Vector3(1, 0, 0), dir.clone().normalize());
+      beamMesh.castShadow = true;
+      this.hitchGroup.add(beamMesh);
+    });
+
+    // 2-5/16" Ball Coupler Head
+    const couplerHousingGeo = new THREE.BoxGeometry(0.28, 0.12, 0.20);
+    const couplerHousing = new THREE.Mesh(couplerHousingGeo, frameMat);
+    couplerHousing.position.set(-tongueReachM + 0.05, couplerElevationM + 0.04, 0);
+    couplerHousing.castShadow = true;
+    this.hitchGroup.add(couplerHousing);
+
+    const socketGeo = new THREE.CylinderGeometry(0.06, 0.07, 0.10, 16);
+    const socket = new THREE.Mesh(socketGeo, hardwareMat);
+    socket.position.set(-tongueReachM - 0.04, couplerElevationM + 0.05, 0);
+    socket.castShadow = true;
+    this.hitchGroup.add(socket);
+
+    // Top-Wind Tongue Jack
+    const jackTubeGeo = new THREE.CylinderGeometry(0.04, 0.04, 0.45, 16);
+    const jackTube = new THREE.Mesh(jackTubeGeo, frameMat);
+    jackTube.position.set(-tongueReachM + 0.32, couplerElevationM + 0.16, 0);
+    jackTube.castShadow = true;
+    this.hitchGroup.add(jackTube);
+
+    const footGeo = new THREE.CylinderGeometry(0.09, 0.09, 0.02, 16);
+    const foot = new THREE.Mesh(footGeo, hardwareMat);
+    foot.position.set(-tongueReachM + 0.32, 0.01, 0);
+    this.hitchGroup.add(foot);
+  }
+
+  buildRamps(config, metrics) {
+    // Ramps are integrated into the rear door assembly
+  }
+}

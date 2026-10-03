@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <rect width="64" height="64" rx="12" fill="#18181b"/>
+  <!-- Trailer Chassis -->
+  <rect x="14" y="32" width="42" height="6" rx="2" fill="#f59e0b"/>
+  <!-- Tongue / Coupler -->
+  <path d="M14 35 L6 42" stroke="#f59e0b" stroke-width="3" stroke-linecap="round"/>
+  <!-- Wheels -->
+  <circle cx="34" cy="42" r="7" fill="#09090b" stroke="#71717a" stroke-width="2"/>
+  <circle cx="44" cy="42" r="7" fill="#09090b" stroke="#71717a" stroke-width="2"/>
+  <circle cx="34" cy="42" r="2.5" fill="#e4e4e7"/>
+  <circle cx="44" cy="42" r="2.5" fill="#e4e4e7"/>
+  <!-- Cargo Headboard -->
+  <rect x="14" y="24" width="4" height="10" rx="1" fill="#d97706"/>
+</svg>
