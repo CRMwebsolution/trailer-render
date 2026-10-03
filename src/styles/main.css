@@ -13,6 +13,9 @@ body { margin: 0; background: var(--bg-color); color: var(--text-main); }
 button, input, select { font: inherit; }
 button { cursor: pointer; }
 button:disabled { cursor: wait; opacity: .5; }
+button:disabled { cursor: not-allowed; }
+.history-toolbar { display: flex; align-items: center; gap: 8px; }
+.history-toolbar .secondary-btn { flex: 1; padding: 8px; font-size: 12px; }
 [hidden] { display: none !important; }
 :focus-visible { outline: 2px solid #83d9ff; outline-offset: 3px; }
 #app {

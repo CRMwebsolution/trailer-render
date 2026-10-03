@@ -1,5 +1,5 @@
 import { store } from '../core/StateStore.js';
-import { configurationURL, normalizeConfig } from '../core/config.js';
+import { configurationURL, normalizeConfig, DEFAULT_CONFIG } from '../core/config.js';
 import { gltfExporterService } from '../export/GLTFExporterService.js';
 
 const FIELDS = {
@@ -42,7 +42,7 @@ export class UIController {
     if (!Object.keys(this.pending).length) return;
     const next = this.pending;
     this.pending = {};
-    store.update(next);
+    store.update(next, { historyGroup: this.historyGroup });
   }
   update(values) { this.flush(); store.update(values); }
 
@@ -61,6 +61,12 @@ export class UIController {
         if (id === 'slider-ramp-length') $('val-ramp-length').textContent = `${value.toFixed(1)} ft`;
       });
       if (isInput) this.listen(element, 'change', () => this.flush());
+      if (isInput) {
+        this.listen(element, 'focus', () => { this.historyGroup = Symbol('edit'); });
+        this.listen(element, 'pointerdown', () => { this.flush(); this.historyGroup = Symbol('drag'); });
+        this.listen(element, 'pointerup', () => { this.flush(); this.historyGroup = null; });
+        this.listen(element, 'blur', () => { this.flush(); this.historyGroup = null; });
+      }
     }
     for (const [name, key] of Object.entries(RADIOS)) {
       document.querySelectorAll(`input[name="${name}"]`).forEach(input => {
@@ -79,6 +85,16 @@ export class UIController {
       document.querySelectorAll('[data-panel]').forEach(other => other.setAttribute('aria-pressed', String(other === button)));
     }));
     this.click('btn-fit-view', () => this.sceneManager.fitView());
+    this.click('btn-undo', () => store.undo());
+    this.click('btn-redo', () => store.redo());
+    this.click('btn-reset-design', () => { store.replace(DEFAULT_CONFIG); this.showToast('Default design restored. Undo brings your design back.'); });
+    this.listen(document, 'keydown', event => {
+      if (!(event.ctrlKey || event.metaKey) || event.altKey || /^(INPUT|TEXTAREA|SELECT)$/.test(event.target.tagName) || event.target.isContentEditable || document.querySelector('dialog[open]')) return;
+      const key = event.key.toLowerCase();
+      if (key !== 'z' && key !== 'y') return;
+      event.preventDefault(); this.flush();
+      if (key === 'y' || event.shiftKey) store.redo(); else store.undo();
+    });
     this.click('btn-toggle-dimensions', () => this.update({ showDimensions: !store.getState().showDimensions }));
     this.click('btn-toggle-truck', () => this.update({ showTowTruck: !store.getState().showTowTruck }));
     this.click('btn-load-truck', () => $('input-truck-file').click());
@@ -166,6 +182,9 @@ export class UIController {
   }
 
   syncFromState(state) {
+    const history = store.getHistory();
+    $('btn-undo').disabled = !history.canUndo;
+    $('btn-redo').disabled = !history.canRedo;
     for (const [id, key] of Object.entries(FIELDS)) {
       const element = $(id);
       if (element.type === 'checkbox') element.checked = state[key];
